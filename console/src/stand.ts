@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
 import { actionSchema, amountValue, RequestError, snapshotSchema, type Action, type Activity, type Snapshot } from "./model.js";
-import { addressSchema, decodeCall, decodeInspection, decodeRecipient, decodeVault, hashSchema, receiptSchema, type Call } from "./receipts.js";
+import { addressSchema, decodeCall, decodeInspection, decodeRecipient, decodeVault, hashSchema, receiptSchema, verifyDelivery, type Call } from "./receipts.js";
 
 type Config = { sdkRoot: string; vaultArtifacts: string; receiptArtifacts: string; stateParent: string };
 type CommandResult = { code: number; stdout: string; stderr: string; file: string };
@@ -146,10 +146,10 @@ export class LocalStand {
     this.view = { ...this.view, balance: { shells: decodeInspection(call.raw_executor_output), time: this.blockTime } };
   }
 
-  private async delivery(): Promise<void> {
+  private async delivery(amount: string): Promise<void> {
     const call = await this.call(this.current().receiver, "stand.snapshot", "null", "user", null);
-    if (call.statusCode !== 0) throw new RequestError(502, `Recipient snapshot rejected with status ${call.statusCode}; delivery remains unverified`);
-    this.view = { ...this.view, delivery: decodeRecipient(call.raw_state) };
+    if (call.statusCode !== 0) throw new Error(`Recipient snapshot rejected with status ${call.statusCode}; delivery remains unverified`);
+    this.view = { ...this.view, delivery: verifyDelivery(this.view.delivery, decodeRecipient(call.raw_state), amount) };
   }
 
   private async apply(action: Exclude<Action, { action: "create" }>): Promise<void> {
@@ -164,7 +164,7 @@ export class LocalStand {
       const value = amountValue(action.amount);
       const body = action.action === "pay" ? Buffer.concat([Buffer.from([0]), le(value, 16)]) : Buffer.concat([Buffer.from(session.receiver.replace(":", ""), "hex"), le(DEPOSIT, 8), le(5n, 16), le(value, 16)]);
       const call = await this.call(session.vault, `ackivault.${action.action}`, JSON.stringify(`0x${body.toString("hex")}`), action.action === "pay" ? "user" : "package-owner", action.amount);
-      if (call.statusCode === 0) await this.delivery();
+      if (call.statusCode === 0) await this.delivery(action.amount);
     }
     await this.inspect();
   }
