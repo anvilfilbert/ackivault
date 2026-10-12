@@ -17,7 +17,7 @@ impl Contract for Receipt {
         let body = input.message.body();
         let raw_offset = body.windows(32).position(|window| window == [0x55; 32]);
         let ascii_offset = body.windows(64).position(|window| window == [b'5'; 64]);
-        let window_start = 0;
+        let window_start = 160;
         let window_end = body.len().min(window_start + 192);
         let mut window = vec![0_u8; 192];
         window[..window_end - window_start].copy_from_slice(&body[window_start..window_end]);
