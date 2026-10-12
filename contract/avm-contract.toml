@@ -29,6 +29,21 @@ kind = "fixed_bytes"
 name = "ackivault_withdraw_args"
 len = 104
 
+[[abi.types]]
+id = 5
+kind = "u128"
+name = "shell_amount"
+
+[[abi.types]]
+id = 6
+kind = "address"
+name = "vault_address"
+
+[[abi.types]]
+id = 7
+kind = "u64"
+name = "vault_nonce"
+
 [[abi.methods]]
 name = "ackivault.deposit"
 
@@ -43,12 +58,199 @@ name = "ackivault.revoke"
 name = "ackivault.withdraw"
 input_type_id = 4
 
+[[abi.events]]
+name = "ackivault.deposit_accepted"
+
+[[abi.events.fields]]
+id = 1
+type_id = 5
+name = "amount_shells"
+
+[[abi.events]]
+name = "ackivault.payment_dispatched"
+
+[[abi.events.fields]]
+id = 1
+type_id = 5
+name = "amount_shells"
+
+[[abi.events.fields]]
+id = 2
+type_id = 6
+name = "destination"
+
+[[abi.events.fields]]
+id = 3
+type_id = 5
+name = "spent_shells"
+
+[[abi.events]]
+name = "ackivault.grant_revoked"
+
+[[abi.events.fields]]
+id = 1
+type_id = 7
+name = "nonce"
+
+[[abi.events]]
+name = "ackivault.owner_withdrawal_dispatched"
+
+[[abi.events.fields]]
+id = 1
+type_id = 5
+name = "amount_shells"
+
+[[abi.events.fields]]
+id = 2
+type_id = 6
+name = "destination"
+
 [[abi.errors]]
 status_code = 1000
-name = "invalid_initialization"
-message = "initialization caller or arguments are invalid"
+name = "invalid_arguments"
+message = "method arguments are malformed or noncanonical"
 
 [[abi.errors]]
 status_code = 1001
 name = "unsupported_message"
 message = "message method is not supported"
+
+[[abi.errors]]
+status_code = 1002
+name = "invalid_owner_key"
+message = "owner key is zero"
+
+[[abi.errors]]
+status_code = 1003
+name = "invalid_agent_key"
+message = "agent key is zero"
+
+[[abi.errors]]
+status_code = 1004
+name = "invalid_expiry"
+message = "grant expiry must be after initialization block time"
+
+[[abi.errors]]
+status_code = 1005
+name = "invalid_cap"
+message = "grant cap must be positive"
+
+[[abi.errors]]
+status_code = 1006
+name = "invalid_recipient_count"
+message = "grant requires one to four recipients"
+
+[[abi.errors]]
+status_code = 1007
+name = "invalid_recipient"
+message = "recipient address or method is invalid"
+
+[[abi.errors]]
+status_code = 1008
+name = "duplicate_recipient"
+message = "recipient address appears more than once"
+
+[[abi.errors]]
+status_code = 1009
+name = "invalid_state_length"
+message = "stored vault state has the wrong length"
+
+[[abi.errors]]
+status_code = 1010
+name = "unsupported_state_version"
+message = "stored vault state version is unsupported"
+
+[[abi.errors]]
+status_code = 1011
+name = "invalid_state_encoding"
+message = "stored vault state is noncanonical or violates invariants"
+
+[[abi.errors]]
+status_code = 1012
+name = "unauthorized_agent"
+message = "caller is not the granted agent"
+
+[[abi.errors]]
+status_code = 1013
+name = "unauthorized_owner"
+message = "caller is not the owner"
+
+[[abi.errors]]
+status_code = 1014
+name = "invalid_agent_nonce"
+message = "agent nonce is not strictly increasing"
+
+[[abi.errors]]
+status_code = 1015
+name = "invalid_owner_nonce"
+message = "owner nonce is not strictly increasing"
+
+[[abi.errors]]
+status_code = 1016
+name = "recipient_not_allowed"
+message = "recipient index is not in the immutable grant"
+
+[[abi.errors]]
+status_code = 1017
+name = "grant_expired"
+message = "agent grant has expired"
+
+[[abi.errors]]
+status_code = 1018
+name = "grant_revoked"
+message = "agent grant has been revoked"
+
+[[abi.errors]]
+status_code = 1019
+name = "grant_active"
+message = "owner withdrawal requires expiry or revocation"
+
+[[abi.errors]]
+status_code = 1020
+name = "already_revoked"
+message = "grant was already permanently revoked"
+
+[[abi.errors]]
+status_code = 1021
+name = "invalid_amount"
+message = "SHELL amount must be positive"
+
+[[abi.errors]]
+status_code = 1022
+name = "invalid_destination"
+message = "owner withdrawal destination or method is invalid"
+
+[[abi.errors]]
+status_code = 1023
+name = "amount_overflow"
+message = "amount or cumulative cap calculation overflowed"
+
+[[abi.errors]]
+status_code = 1024
+name = "cap_exceeded"
+message = "agent payment exceeds cumulative cap"
+
+[[abi.errors]]
+status_code = 1025
+name = "insufficient_shell_balance"
+message = "visible SHELL balance does not cover amount and reserve"
+
+[[abi.errors]]
+status_code = 1026
+name = "invalid_caller_type"
+message = "method was called from the wrong message type"
+
+[[abi.errors]]
+status_code = 1027
+name = "invalid_incoming_value"
+message = "incoming main or extra currency value is not allowed"
+
+[[abi.errors]]
+status_code = 1028
+name = "invalid_signature"
+message = "external signed-message metadata is invalid"
+
+[[abi.errors]]
+status_code = 1029
+name = "event_encoding"
+message = "canonical event fields could not be encoded"

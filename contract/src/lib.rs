@@ -3,19 +3,20 @@
 use avm_contract_sdk::{Contract, MessageInput, MessageOutput};
 
 pub mod abi;
+mod adapter;
 pub mod grant;
 pub mod initialization;
 pub mod state;
 
-struct AckiVault;
+pub struct AckiVault;
 
 impl Contract for AckiVault {
-    fn init(_input: MessageInput<'_>) -> MessageOutput {
-        MessageOutput::failure(1000)
+    fn init(input: MessageInput<'_>) -> MessageOutput {
+        adapter::initialize(input)
     }
 
-    fn process_message(_input: MessageInput<'_>) -> MessageOutput {
-        MessageOutput::failure(1001)
+    fn process_message(input: MessageInput<'_>) -> MessageOutput {
+        adapter::process_message(input)
     }
 }
 

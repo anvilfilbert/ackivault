@@ -69,10 +69,10 @@
 
 **Interfaces:** `AckiVault::init(MessageInput<'_>) -> MessageOutput`; `AckiVault::process_message(MessageInput<'_>) -> MessageOutput`. The adapter calls Tasks 2–3, checks exact canonical argument lengths/caller/value/currency, and creates one `StateUpdate::FullReplace` plus the intended event/outbound only on success.
 
-- [ ] Write failing adapter tests for canonical external initialization, internal SHELL-only deposit, authorized pay, revoke, withdraw, wrong source types, unexpected incoming currencies/value, and effect-free rejection.
-- [ ] Run the tests and confirm the failures.
-- [ ] Implement precise status codes and ABI errors; `pay` and `withdraw` emit `value_main = 0`, only extra currency ID `2`, and the fixed/selected reserve. Events must say dispatched, not delivered.
-- [ ] Rerun tests, `cargo fmt --check`, Clippy, and pinned reproducible AVM build; commit this slice only when green.
+- [x] Write failing adapter tests for canonical external initialization, internal SHELL-only deposit, authorized pay, revoke, withdraw, wrong source types, unexpected incoming currencies/value, and effect-free rejection.
+- [x] Run the tests and confirm the failures.
+- [x] Implement precise status codes and ABI errors; `pay` and `withdraw` emit `value_main = 0`, only extra currency ID `2`, and the fixed/selected reserve. Events must say dispatched, not delivered.
+- [x] Rerun tests, `cargo fmt --check`, Clippy, and pinned reproducible AVM build; commit this slice only when green.
 
 ### Task 5: Real local-stand journey
 

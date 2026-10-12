@@ -23,32 +23,44 @@ pub struct VaultState {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u32)]
 pub enum VaultError {
-    InvalidArguments,
-    InvalidOwnerKey,
-    InvalidAgentKey,
-    InvalidExpiry,
-    InvalidCap,
-    InvalidRecipientCount,
-    InvalidRecipient,
-    DuplicateRecipient,
-    InvalidStateLength,
-    UnsupportedStateVersion,
-    InvalidStateEncoding,
-    UnauthorizedAgent,
-    UnauthorizedOwner,
-    InvalidAgentNonce,
-    InvalidOwnerNonce,
-    RecipientNotAllowed,
-    GrantExpired,
-    GrantRevoked,
-    GrantActive,
-    AlreadyRevoked,
-    InvalidAmount,
-    InvalidDestination,
-    AmountOverflow,
-    CapExceeded,
-    InsufficientShellBalance,
+    InvalidArguments = 1000,
+    UnsupportedMessage = 1001,
+    InvalidOwnerKey = 1002,
+    InvalidAgentKey = 1003,
+    InvalidExpiry = 1004,
+    InvalidCap = 1005,
+    InvalidRecipientCount = 1006,
+    InvalidRecipient = 1007,
+    DuplicateRecipient = 1008,
+    InvalidStateLength = 1009,
+    UnsupportedStateVersion = 1010,
+    InvalidStateEncoding = 1011,
+    UnauthorizedAgent = 1012,
+    UnauthorizedOwner = 1013,
+    InvalidAgentNonce = 1014,
+    InvalidOwnerNonce = 1015,
+    RecipientNotAllowed = 1016,
+    GrantExpired = 1017,
+    GrantRevoked = 1018,
+    GrantActive = 1019,
+    AlreadyRevoked = 1020,
+    InvalidAmount = 1021,
+    InvalidDestination = 1022,
+    AmountOverflow = 1023,
+    CapExceeded = 1024,
+    InsufficientShellBalance = 1025,
+    InvalidCallerType = 1026,
+    InvalidIncomingValue = 1027,
+    InvalidSignature = 1028,
+    EventEncoding = 1029,
+}
+
+impl VaultError {
+    pub const fn status_code(self) -> u32 {
+        self as u32
+    }
 }
 
 pub const RECIPIENT_BYTES: usize = 88;
