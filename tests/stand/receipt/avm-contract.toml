@@ -13,3 +13,11 @@ len = 160
 
 [[abi.methods]]
 name = "ackivault.deposit"
+
+[[abi.events]]
+name = "stand.init_probe"
+
+[[abi.events.fields]]
+id = 1
+type_id = 1
+name = "snapshot"

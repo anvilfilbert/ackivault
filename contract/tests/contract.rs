@@ -47,14 +47,13 @@ fn external_input(
     state: &[u8],
     block_time: u32,
     balance_shells: u128,
-    deploy: bool,
     value_main: u128,
     incoming_shells: u128,
 ) -> Vec<u8> {
     let destination = address(8, 9);
     let mut message = vec![0_u8; 208];
     message[0] = 1;
-    message[1] = if deploy { 3 } else { 1 };
+    message[1] = 1;
     message[2..4].copy_from_slice(&u16::from(incoming_shells > 0).to_le_bytes());
     message[4..8].copy_from_slice(&(body.len() as u32).to_le_bytes());
     message[8..16].copy_from_slice(&method_id.to_le_bytes());
@@ -95,6 +94,13 @@ fn external_input(
     input.extend_from_slice(&(message.len() as u32).to_le_bytes());
     input.extend_from_slice(&message);
     input.extend_from_slice(&0_u32.to_le_bytes());
+    input
+}
+
+fn deployment_input(key: [u8; 32], body: &[u8], block_time: u32) -> Vec<u8> {
+    let mut input = external_input(key, 0, 0, body, &[], block_time, 0, 0, 0);
+    let message_offset = input.len() - 208 - body.len() - 64 - 4;
+    input[message_offset + 1] = 3;
     input
 }
 
@@ -179,7 +185,7 @@ fn assert_effect_free(output: MessageOutput) {
 
 #[test]
 fn signed_external_initialization_sets_owner_and_grant() {
-    let frame = external_input([1; 32], 0, 0, &init_args(), &[], 10, 0, true, 0, 0);
+    let frame = deployment_input([1; 32], &init_args(), 10);
     let input = decode_message_input(&frame).expect("canonical signed deployment");
     let output = AckiVault::init(input);
 
@@ -218,7 +224,6 @@ fn agent_payment_dispatches_only_shell_to_immutable_recipient() {
         &vault_state(),
         99,
         100,
-        false,
         0,
         0,
     );
@@ -260,7 +265,6 @@ fn rejected_messages_have_no_state_or_outbound_effects() {
         &state,
         99,
         100,
-        false,
         0,
         0,
     )));
@@ -272,7 +276,6 @@ fn rejected_messages_have_no_state_or_outbound_effects() {
         &state,
         99,
         100,
-        false,
         1,
         0,
     )));
@@ -284,7 +287,6 @@ fn rejected_messages_have_no_state_or_outbound_effects() {
         &state,
         99,
         100,
-        false,
         0,
         1,
     )));
@@ -296,7 +298,6 @@ fn rejected_messages_have_no_state_or_outbound_effects() {
         &state,
         99,
         100,
-        false,
         0,
         0,
     )));
@@ -315,7 +316,6 @@ fn rejected_messages_have_no_state_or_outbound_effects() {
         &state,
         99,
         100,
-        false,
         0,
         0,
     )));
@@ -338,7 +338,6 @@ fn owner_revoke_and_withdraw_dispatch_without_changing_agent_spent() {
         &vault_state(),
         99,
         100,
-        false,
         0,
         0,
     );
@@ -356,7 +355,6 @@ fn owner_revoke_and_withdraw_dispatch_without_changing_agent_spent() {
         &revoked_bytes,
         99,
         100,
-        false,
         0,
         0,
     )));
@@ -369,7 +367,6 @@ fn owner_revoke_and_withdraw_dispatch_without_changing_agent_spent() {
         &revoked_bytes,
         99,
         100,
-        false,
         0,
         0,
     );

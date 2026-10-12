@@ -81,6 +81,7 @@ deploy_contract() {
 deploy_contract '7265636569766572' null receiver "$receipt_artifacts_dir"
 receiver_address="$(jq -er '.address' "${output_dir}/receiver-funding-required.json")"
 "$stand" inspect --state "$state" --wasmtime-profile "$profile" > "${output_dir}/receiver-inspect.json"
+"$stand" events --state "$state" --wasmtime-profile "$profile" > "${output_dir}/receiver-events.json"
 main_args="$("${output_dir}/stand-args" "$user_key" 1800007200 1000 "$receiver_address" "$deposit_method" 5)"
 deploy_contract '6d61696e' "$main_args" main "$vault_artifacts_dir"
 main_address="$(jq -er '.address' "${output_dir}/main-funding-required.json")"
