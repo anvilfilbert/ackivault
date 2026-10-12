@@ -279,6 +279,38 @@ fn agent_payment_dispatches_only_shell_to_immutable_recipient() {
 }
 
 #[test]
+fn replayed_agent_nonce_is_effect_free_after_accepted_payment() {
+    let first = process(&external_input(
+        [2; 32],
+        7,
+        PAY_METHOD_ID,
+        &pay_args(10),
+        &vault_state(),
+        99,
+        100,
+        0,
+        0,
+    ));
+    assert_eq!(first.status_code, 0);
+    let Some(StateUpdate::FullReplace(state)) = first.state_update else {
+        panic!("accepted payment must replace state");
+    };
+    let replay = process(&external_input(
+        [2; 32],
+        7,
+        PAY_METHOD_ID,
+        &pay_args(10),
+        &state,
+        99,
+        100,
+        0,
+        0,
+    ));
+    assert_eq!(replay.status_code, 1014);
+    assert_effect_free(replay);
+}
+
+#[test]
 fn rejected_messages_have_no_state_or_outbound_effects() {
     let state = vault_state();
     assert_effect_free(process(&external_input(

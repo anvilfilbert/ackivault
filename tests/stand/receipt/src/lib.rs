@@ -9,6 +9,7 @@ use avm_contract_sdk::{
 const STATE_BYTES: usize = 24;
 const DEPOSIT_METHOD_ID: u64 = 0xe940_cf11_4abd_d07a;
 const FORWARD_DEPOSIT_METHOD_ID: u64 = 0x453c_5457_6719_a1b4;
+const SNAPSHOT_METHOD_ID: u64 = 0x7a92_36e9_9b7a_e9dd;
 const DEPOSIT_RECEIVED_EVENT_CLASS: u64 = 0x1b72_8f6b_f27d_9c25;
 const SHELL_CURRENCY_ID: u32 = 2;
 
@@ -26,6 +27,7 @@ impl Contract for Receipt {
         match input.message.method_id() {
             DEPOSIT_METHOD_ID => receive_deposit(input),
             FORWARD_DEPOSIT_METHOD_ID => forward_deposit(input),
+            SNAPSHOT_METHOD_ID => snapshot(input),
             _ => MessageOutput::failure(1000),
         }
     }
@@ -122,6 +124,17 @@ fn forward_deposit(input: MessageInput<'_>) -> MessageOutput {
         body: Vec::new(),
     }];
     output
+}
+
+fn snapshot(input: MessageInput<'_>) -> MessageOutput {
+    let (Caller::External(_), CanonicalMessage::External(message)) = (input.caller, input.message)
+    else {
+        return MessageOutput::failure(1001);
+    };
+    if !message.body.is_empty() || message.value_main != 0 || !message.extra.is_empty() {
+        return MessageOutput::failure(1002);
+    }
+    MessageOutput::success(StateUpdate::FullReplace(input.state.to_vec()))
 }
 
 avm_contract_sdk::export_message_contract!(Receipt, arena_bytes = 262_144);

@@ -33,6 +33,9 @@ name = "ackivault.deposit"
 name = "stand.forward_deposit"
 input_type_id = 2
 
+[[abi.methods]]
+name = "stand.snapshot"
+
 [[abi.events]]
 name = "stand.deposit_received"
 

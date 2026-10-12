@@ -80,8 +80,8 @@
 
 **Interfaces:** The runner accepts explicit paths to the packaged build and stand binaries and Wasmtime profile; it writes all state and logs under an ignored local output directory. It uses deterministic local identities and timestamps, no secret keys or network endpoints.
 
-- [ ] Write stand assertions before the runner passes: deploy and fund, internal SHELL deposit, accepted payment observed by a test recipient, over-cap/replay/wrong-key/revoked rejection, owner withdrawal, events and state, journal replay, and no real-network calls.
-- [ ] Run the runner to establish the failing end-to-end baseline.
-- [ ] Add only the fixture/runner behavior needed to satisfy those assertions; inspect receipt fields rather than trusting exit status alone.
-- [ ] Run the complete Rust suite, format, Clippy, two reproducible AVM builds, stand journey, and replay. Save a concise evidence summary outside tracked files if it includes local metadata.
+- [x] Write stand assertions before the runner passes: deploy and fund, internal SHELL deposit, accepted payment observed by a test recipient, over-cap/wrong-key/revoked rejection, owner withdrawal, events and state, journal replay, and no real-network calls. Duplicate signed nonces are checked in canonical Rust tests because the stand CLI generates fresh nonces.
+- [x] Run the runner to establish the failing end-to-end baseline.
+- [x] Add only the fixture/runner behavior needed to satisfy those assertions; inspect executor status, vault state, recipient receipt state, and events rather than trusting CLI exit status alone.
+- [x] Run the complete Rust suite, format, Clippy, two reproducible AVM builds, stand journey, and replay. Save a concise evidence summary outside tracked files if it includes local metadata.
 - [ ] Scan tracked files and commit metadata for personal/private data, review the final diff, then push the verified commit(s) to the repository.

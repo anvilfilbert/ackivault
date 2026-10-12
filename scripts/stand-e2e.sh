@@ -82,8 +82,6 @@ deploy_contract() {
 receiver_args="$("${output_dir}/stand-args" "$user_key" 1800007200 1000 "${dapp_id}:${dummy_account}" "$deposit_method" 5)"
 deploy_contract '7265636569766572' "$receiver_args" receiver "$receipt_artifacts_dir"
 receiver_address="$(jq -er '.address' "${output_dir}/receiver-funding-required.json")"
-"$stand" inspect --state "$state" --wasmtime-profile "$profile" > "${output_dir}/receiver-inspect.json"
-"$stand" events --state "$state" --wasmtime-profile "$profile" > "${output_dir}/receiver-events.json"
 main_args="$("${output_dir}/stand-args" "$user_key" 1800007200 1000 "$receiver_address" "$deposit_method" 5)"
 deploy_contract '6d61696e' "$main_args" main "$vault_artifacts_dir"
 main_address="$(jq -er '.address' "${output_dir}/main-funding-required.json")"
@@ -95,7 +93,8 @@ forward_args="\"${main_address}\""
   --block-time 1800000005 --created-at 1800000004 --expire-at 1800003604 \
   --fuel-fee-shells 1000 > "${output_dir}/deposit.json"
 jq -e '.status == "ok" and .raw_executor_output[8:16] == "00000000" and
-  (.events | length) == 1' "${output_dir}/deposit.json" >/dev/null
+  (.events | length) == 1 and .events[0][64:80] == "6face8a8a6cdeb2a"' \
+  "${output_dir}/deposit.json" >/dev/null
 
 pay_args='"0x000a000000000000000000000000000000"'
 "$stand" call --state "$state" --wasmtime-profile "$profile" \
@@ -107,7 +106,19 @@ jq -e --arg owner "$package_owner_key" --arg agent "$user_key" \
   '.status == "ok" and .method == "ackivault.pay" and
   .raw_state[2:66] == $owner and .raw_state[66:130] == $agent and
   .raw_state[170:202] == "0f000000000000000000000000000000" and
-  (.events | length) == 2' "${output_dir}/pay.json" >/dev/null
+  (.events | length) == 2 and
+  .events[0][64:80] == "c3841027b8f21b57" and
+  .events[1][64:80] == "259c7df26b8f721b"' \
+  "${output_dir}/pay.json" >/dev/null
+
+"$stand" call --state "$state" --wasmtime-profile "$profile" \
+  --address "$receiver_address" --method stand.snapshot --args-json null \
+  --identity user --value-main 0 --extra-currencies '' \
+  --block-time 1800000011 --created-at 1800000010 --expire-at 1800003610 \
+  --fuel-fee-shells 1000 > "${output_dir}/recipient-after-pay.json"
+jq -e '.status == "ok" and .raw_executor_output[8:16] == "00000000" and
+  .raw_state == "0a0000000000000000000000000000000100000000000000" and
+  (.events | length) == 0' "${output_dir}/recipient-after-pay.json" >/dev/null
 
 over_cap_args='"0x00da030000000000000000000000000000"'
 "$stand" call --state "$state" --wasmtime-profile "$profile" \
@@ -157,20 +168,34 @@ withdraw_args="\"0x${receiver_address/:/}7ad0bd4a11cf40e905000000000000000000000
   --block-time 1800000060 --created-at 1800000059 --expire-at 1800003659 \
   --fuel-fee-shells 1000 > "${output_dir}/withdraw.json"
 jq -e '.status == "ok" and .raw_executor_output[8:16] == "00000000" and
-  (.events | length) == 2' "${output_dir}/withdraw.json" >/dev/null
+  (.events | length) == 2 and
+  .events[0][64:80] == "61bf518cf4c84aa3" and
+  .events[1][64:80] == "259c7df26b8f721b"' \
+  "${output_dir}/withdraw.json" >/dev/null
+
+"$stand" call --state "$state" --wasmtime-profile "$profile" \
+  --address "$receiver_address" --method stand.snapshot --args-json null \
+  --identity user --value-main 0 --extra-currencies '' \
+  --block-time 1800000061 --created-at 1800000060 --expire-at 1800003660 \
+  --fuel-fee-shells 1000 > "${output_dir}/recipient-after-withdraw.json"
+jq -e '.status == "ok" and .raw_executor_output[8:16] == "00000000" and
+  .raw_state == "110000000000000000000000000000000200000000000000" and
+  (.events | length) == 0' "${output_dir}/recipient-after-withdraw.json" >/dev/null
 
 "$stand" inspect --state "$state" --wasmtime-profile "$profile" > "${output_dir}/inspect.json"
 jq -e --arg receiver "$receiver_address" --arg main "$main_address" \
   '.status == "ok" and (.accounts | any(.address == $receiver)) and (.accounts | any(.address == $main))' \
   "${output_dir}/inspect.json" >/dev/null
-receiver_before="$(jq -er --arg address "$receiver_address" \
-  '.accounts[] | select(.address == $address) | .account_hash' "${output_dir}/receiver-inspect.json")"
-receiver_after="$(jq -er --arg address "$receiver_address" \
-  '.accounts[] | select(.address == $address) | .account_hash' "${output_dir}/inspect.json")"
-if [[ "$receiver_before" == "$receiver_after" ]]; then
-  echo 'recipient account did not change after dispatched payment' >&2
-  exit 1
-fi
 "$stand" replay --state "$state" --wasmtime-profile "$profile" > "${output_dir}/replay.json"
-jq -e '.status == "ok"' "${output_dir}/replay.json" >/dev/null
+jq -e --slurpfile inspect "${output_dir}/inspect.json" \
+  '.status == "ok" and
+  (.account_state_root | type) == "string" and (.account_state_root | length) == 64 and
+  (.registry_root | type) == "string" and (.registry_root | length) == 64 and
+  (.cumulative_fee_shells | type) == "string" and
+  (.accepted_input_count | type) == "number" and .accepted_input_count > 0 and
+  .account_state_root == $inspect[0].account_state_root and
+  .registry_root == $inspect[0].registry_root and
+  .cumulative_fee_shells == $inspect[0].cumulative_fee_shells and
+  .accepted_input_count == $inspect[0].accepted_input_count' \
+  "${output_dir}/replay.json" >/dev/null
 printf 'stand deploy and replay verified: %s %s\n' "$receiver_address" "$main_address"
