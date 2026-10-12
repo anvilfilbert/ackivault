@@ -1,0 +1,83 @@
+name: AckiVault local stand
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stand-e2e:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.93.0 --profile minimal --component clippy --component rustfmt --target wasm32-unknown-unknown
+      - name: Fetch pinned AVM SDK release
+        run: |
+          mkdir -p .tools/release
+          curl --fail --location --retry 3 --retry-all-errors --retry-delay 2 \
+            --output .tools/release/avm-sdk-linux-x86_64.tar.gz \
+            https://github.com/gosh-sh/avm-sdk/releases/download/avm-dev-335a0f09fdbc-sdk-0cbca40fad9a/avm-sdk-linux-x86_64.tar.gz
+          printf '%s  %s\n' \
+            '2171ee865bc9fc2e1a1274dfdd0f4330dc362b1f49d38c0a35c4de41aa61d6f3' \
+            '.tools/release/avm-sdk-linux-x86_64.tar.gz' | sha256sum --check
+          tar -xzf .tools/release/avm-sdk-linux-x86_64.tar.gz -C .tools/release
+      - name: Test and build contract
+        run: |
+          cargo fmt --manifest-path contract/Cargo.toml --check
+          cargo test --manifest-path contract/Cargo.toml --locked
+          cargo clippy --manifest-path contract/Cargo.toml --target wasm32-unknown-unknown --locked -- -D warnings
+          cargo fmt --manifest-path tests/stand/receipt/Cargo.toml --check
+          cargo test --manifest-path tests/stand/receipt/Cargo.toml --locked
+          cargo clippy --manifest-path tests/stand/receipt/Cargo.toml --target wasm32-unknown-unknown --locked -- -D warnings
+          .tools/release/avm-sdk-linux-x86_64/bin/avm-contract-build build --manifest-path contract/Cargo.toml
+          .tools/release/avm-sdk-linux-x86_64/bin/avm-contract-build build --manifest-path tests/stand/receipt/Cargo.toml
+          sha256sum contract/target/avm/contract.wasm contract/target/avm/contract.acab contract/target/avm/contract.descriptor > .tools/vault-first.sha256
+          sha256sum tests/stand/receipt/target/avm/contract.wasm tests/stand/receipt/target/avm/contract.acab tests/stand/receipt/target/avm/contract.descriptor > .tools/receipt-first.sha256
+          cargo clean --manifest-path contract/Cargo.toml
+          cargo clean --manifest-path tests/stand/receipt/Cargo.toml
+          .tools/release/avm-sdk-linux-x86_64/bin/avm-contract-build build --manifest-path contract/Cargo.toml
+          .tools/release/avm-sdk-linux-x86_64/bin/avm-contract-build build --manifest-path tests/stand/receipt/Cargo.toml
+          sha256sum --check .tools/vault-first.sha256
+          sha256sum --check .tools/receipt-first.sha256
+          rustc --edition=2021 tools/check-abi-ids.rs -o .tools/check-abi-ids
+          .tools/check-abi-ids contract/target/avm/contract.acab
+      - name: Deploy and replay in native stand
+        run: |
+          bash scripts/stand-e2e.sh \
+            .tools/release/avm-sdk-linux-x86_64 \
+            contract/target/avm \
+            tests/stand/receipt/target/avm \
+            .stand/native
+      - name: Verify console on native stand and recorded evidence
+        working-directory: console
+        env:
+          ACKIVAULT_EVIDENCE_DIR: ../.stand/native
+          ACKIVAULT_SDK_ROOT: ../.tools/release/avm-sdk-linux-x86_64
+          ACKIVAULT_VAULT_ARTIFACTS: ../contract/target/avm
+          ACKIVAULT_RECEIPT_ARTIFACTS: ../tests/stand/receipt/target/avm
+          ACKIVAULT_CONSOLE_STATE: ../.stand/console
+        run: |
+          npm ci
+          npm run build
+          npm test
+          npm run test:native
+      - name: Upload stand diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stand-diagnostics
+          path: |
+            .stand/native/*.json
+            .stand/console/session-*/*.json
+          if-no-files-found: ignore

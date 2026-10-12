@@ -1,7 +1,7 @@
 # AckiVault Design
 
 Date: 2026-10-12
-Status: Approved for implementation
+Status: Core implemented and verified in the local AVM stand
 
 ## Purpose
 
@@ -36,8 +36,10 @@ Mainnet safety.
 
 Use the SDK's `MessageIsolated` `Contract` interface. The implementation has
 one contract crate, a compact fixed-version state codec, and a test recipient
-and funder fixture used only for the local-stand journey. No application
-server, indexer, oracle, scheduler, or upgrade contract is part of version one.
+and funder fixture used only for the local-stand journey. The contract depends
+on no application server, indexer, oracle, scheduler, or upgrade contract.
+The separate [local console](../../../console/README.md) is a test interface,
+not a network gateway or part of the contract's authorization boundary.
 
 Initialization requires a signed external caller. That caller's public key
 becomes the owner key. The initialization arguments contain one nonzero agent
@@ -80,6 +82,7 @@ describe a dispatched message as proven receipt or successful service delivery.
 | `deposit` | Internal message with positive SHELL value, zero `value_main`, and no other extra currency. Anyone may fund. | Accept the incoming funds and emit `DepositAccepted`; cap and `spent` do not change. |
 | `pay` | Signed external agent key; strictly increasing agent nonce; not revoked; `block_time < expiry`; positive amount; exact configured recipient; checked cap and visible SHELL balance. | Increase `spent` by amount plus fixed reserve, record nonce, emit one outbound SHELL payment and `PaymentDispatched`. |
 | `revoke` | Signed external owner key and strictly increasing owner nonce. | Permanently set revoked, record nonce, and emit `GrantRevoked`. Repeating it returns a specific failure. |
+| `inspect` | Signed external owner key, strictly increasing owner nonce and empty arguments. | Advance only the owner nonce and emit the runtime-visible SHELL balance in `ackivault.status`. No transfer or grant change; later execution fees may change the sampled balance. |
 | `withdraw` | Signed external owner key and strictly increasing owner nonce; grant revoked or `block_time >= expiry`; positive amount; explicit nonzero destination and owner-selected method/reserve; visible SHELL balance covers requested amount and reserve. | Send the specified SHELL amount, record nonce, and emit `OwnerWithdrawalDispatched`. Owner withdrawals do not change the agent cap ledger. |
 
 Unknown methods, internal calls to owner/agent methods, external calls to
@@ -103,7 +106,8 @@ First write behavior tests against the Rust contract and observe expected
 failures before adding implementation. Cover initialization validation,
 deposit validation, authorized dispatch, exact cap boundary, nonce replay,
 wrong role, wrong recipient, expiry boundary, revocation, checked overflow,
-insufficient visible SHELL, owner withdrawal, and effect-free rejection. Test
+insufficient visible SHELL, owner withdrawal, inspection authorization and
+owner nonce replay, and effect-free rejection. Test
 the state codec with malformed and truncated bytes.
 
 Then run formatter and Clippy, compile the WASM/ACAB/descriptor twice through
