@@ -5,7 +5,7 @@ use avm_contract_sdk::{
     EventValue, MessageInput, MessageOutput, StateUpdate,
 };
 
-const STATE_BYTES: usize = 160;
+const STATE_BYTES: usize = 24;
 const DEPOSIT_METHOD_ID: u64 = 0xe940_cf11_4abd_d07a;
 const INIT_PROBE_EVENT_CLASS: u64 = 0x363f_1a15_5926_06bd;
 const SHELL_CURRENCY_ID: u32 = 2;
@@ -14,59 +14,43 @@ struct Receipt;
 
 impl Contract for Receipt {
     fn init(input: MessageInput<'_>) -> MessageOutput {
-        let Ok(body_len) = u32::try_from(input.message.body().len()) else {
-            return MessageOutput::failure(1000);
-        };
-        let Ok(state_len) = u32::try_from(input.state.len()) else {
-            return MessageOutput::failure(1000);
-        };
-        let mut state = vec![0_u8; STATE_BYTES];
-        state[2] = u8::from(input.message.is_deploy());
-        state[4..8].copy_from_slice(&body_len.to_le_bytes());
-        state[8..12].copy_from_slice(&state_len.to_le_bytes());
-        state[12..16].copy_from_slice(&input.context.block_time.to_le_bytes());
-        match input.caller {
-            Caller::External(key) => {
-                state[0] = 1;
-                state[16..48].copy_from_slice(&key);
-            }
-            Caller::Internal(address) => {
-                state[0] = 2;
-                state[16..48].copy_from_slice(&address.account_id);
-            }
-        }
-        match input.message {
-            CanonicalMessage::External(message) => {
-                state[1] = 1;
-                state[3] = message.flags;
-                state[48..80].copy_from_slice(&message.pubkey);
-                state[80..88].copy_from_slice(&(message.signature.len() as u64).to_le_bytes());
-                state[88..104].copy_from_slice(&message.value_main.to_le_bytes());
-                let prefix_len = message.body.len().min(16);
-                state[104..104 + prefix_len].copy_from_slice(&message.body[..prefix_len]);
-                state[120] = u8::from(message.extra.iter().next().is_some());
-            }
-            CanonicalMessage::Internal(message) => {
-                state[1] = 2;
-                state[3] = message.flags;
-                state[88..104].copy_from_slice(&message.value_main.to_le_bytes());
-                let prefix_len = message.body.len().min(16);
-                state[104..104 + prefix_len].copy_from_slice(&message.body[..prefix_len]);
-                state[120] = u8::from(message.extra.iter().next().is_some());
-            }
-        }
         let body = input.message.body();
-        let mut body_tail = vec![0_u8; 256];
-        let tail_start = body.len().saturating_sub(body_tail.len());
-        let tail = &body[tail_start..];
-        body_tail[..tail.len()].copy_from_slice(tail);
-        let Ok(fields_binary) = encode_event_fields(&[EventField {
-            name: "body_tail".into(),
-            value: EventValue::Data(body_tail),
-        }]) else {
+        let raw_offset = body.windows(32).position(|window| window == [0x55; 32]);
+        let ascii_offset = body.windows(64).position(|window| window == [b'5'; 64]);
+        let window_start = raw_offset.or(ascii_offset).unwrap_or(0).saturating_sub(80);
+        let window_end = body.len().min(window_start + 192);
+        let mut window = vec![0_u8; 192];
+        window[..window_end - window_start].copy_from_slice(&body[window_start..window_end]);
+        let Ok(body_len) = u64::try_from(body.len()) else {
+            return MessageOutput::failure(1000);
+        };
+        let Ok(raw_offset) = u64::try_from(raw_offset.unwrap_or(usize::MAX)) else {
+            return MessageOutput::failure(1000);
+        };
+        let Ok(ascii_offset) = u64::try_from(ascii_offset.unwrap_or(usize::MAX)) else {
+            return MessageOutput::failure(1000);
+        };
+        let Ok(fields_binary) = encode_event_fields(&[
+            EventField {
+                name: "ascii_offset".into(),
+                value: EventValue::U64(ascii_offset),
+            },
+            EventField {
+                name: "body_len".into(),
+                value: EventValue::U64(body_len),
+            },
+            EventField {
+                name: "raw_offset".into(),
+                value: EventValue::U64(raw_offset),
+            },
+            EventField {
+                name: "window".into(),
+                value: EventValue::Data(window),
+            },
+        ]) else {
             return MessageOutput::failure(1005);
         };
-        let mut output = MessageOutput::success(StateUpdate::FullReplace(state));
+        let mut output = MessageOutput::success(StateUpdate::FullReplace(vec![0; STATE_BYTES]));
         output.event_intents = vec![EventIntent {
             input_index: 0,
             kind: EventKind::External,
@@ -100,10 +84,10 @@ impl Contract for Receipt {
         {
             return MessageOutput::failure(1003);
         }
-        let Ok(received_bytes) = input.state[128..144].try_into() else {
+        let Ok(received_bytes) = input.state[..16].try_into() else {
             return MessageOutput::failure(1000);
         };
-        let Ok(count_bytes) = input.state[144..152].try_into() else {
+        let Ok(count_bytes) = input.state[16..24].try_into() else {
             return MessageOutput::failure(1000);
         };
         let received = u128::from_le_bytes(received_bytes);
@@ -115,8 +99,8 @@ impl Contract for Receipt {
             return MessageOutput::failure(1004);
         };
         let mut state = input.state.to_vec();
-        state[128..144].copy_from_slice(&next_received.to_le_bytes());
-        state[144..152].copy_from_slice(&next_count.to_le_bytes());
+        state[..16].copy_from_slice(&next_received.to_le_bytes());
+        state[16..24].copy_from_slice(&next_count.to_le_bytes());
         MessageOutput::success(StateUpdate::FullReplace(state))
     }
 }

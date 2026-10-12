@@ -1,6 +1,6 @@
 [descriptor]
 execution_mode = "message_isolated"
-state_schema_id = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+state_schema_id = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
 
 [abi]
 state_root_type_id = 1
@@ -9,13 +9,18 @@ state_root_type_id = 1
 id = 1
 kind = "fixed_bytes"
 name = "receipt_state"
-len = 160
+len = 24
 
 [[abi.types]]
 id = 2
+kind = "u64"
+name = "diagnostic_offset"
+
+[[abi.types]]
+id = 3
 kind = "fixed_bytes"
-name = "deploy_body_tail"
-len = 256
+name = "deploy_argument_window"
+len = 192
 
 [[abi.methods]]
 name = "ackivault.deposit"
@@ -26,4 +31,19 @@ name = "stand.init_probe"
 [[abi.events.fields]]
 id = 1
 type_id = 2
-name = "body_tail"
+name = "ascii_offset"
+
+[[abi.events.fields]]
+id = 2
+type_id = 2
+name = "body_len"
+
+[[abi.events.fields]]
+id = 3
+type_id = 2
+name = "raw_offset"
+
+[[abi.events.fields]]
+id = 4
+type_id = 3
+name = "window"
