@@ -1,0 +1,47 @@
+name: AckiVault local stand
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stand-e2e:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.93.0 --profile minimal --component clippy --component rustfmt --target wasm32-unknown-unknown
+      - name: Fetch pinned AVM SDK release
+        run: |
+          mkdir -p .tools/release
+          curl --fail --location --retry 3 --retry-all-errors --retry-delay 2 \
+            --output .tools/release/avm-sdk-linux-x86_64.tar.gz \
+            https://github.com/gosh-sh/avm-sdk/releases/download/avm-dev-335a0f09fdbc-sdk-0cbca40fad9a/avm-sdk-linux-x86_64.tar.gz
+          printf '%s  %s\n' \
+            '2171ee865bc9fc2e1a1274dfdd0f4330dc362b1f49d38c0a35c4de41aa61d6f3' \
+            '.tools/release/avm-sdk-linux-x86_64.tar.gz' | sha256sum --check
+          tar -xzf .tools/release/avm-sdk-linux-x86_64.tar.gz -C .tools/release
+      - name: Test and build contract
+        run: |
+          cargo fmt --manifest-path contract/Cargo.toml --check
+          cargo test --manifest-path contract/Cargo.toml --locked
+          cargo clippy --manifest-path contract/Cargo.toml --target wasm32-unknown-unknown --locked -- -D warnings
+          .tools/release/avm-sdk-linux-x86_64/bin/avm-contract-build build --manifest-path contract/Cargo.toml
+          rustc --edition=2021 tools/check-abi-ids.rs -o .tools/check-abi-ids
+          .tools/check-abi-ids contract/target/avm/contract.acab
+      - name: Deploy and replay in native stand
+        run: |
+          bash scripts/stand-e2e.sh \
+            .tools/release/avm-sdk-linux-x86_64 \
+            contract/target/avm \
+            .stand/native
+      - name: Upload stand diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stand-diagnostics
+          path: .stand/native/*.json
+          if-no-files-found: ignore
