@@ -29,7 +29,11 @@ jobs:
           cargo fmt --manifest-path contract/Cargo.toml --check
           cargo test --manifest-path contract/Cargo.toml --locked
           cargo clippy --manifest-path contract/Cargo.toml --target wasm32-unknown-unknown --locked -- -D warnings
+          cargo fmt --manifest-path tests/stand/receipt/Cargo.toml --check
+          cargo test --manifest-path tests/stand/receipt/Cargo.toml --locked
+          cargo clippy --manifest-path tests/stand/receipt/Cargo.toml --target wasm32-unknown-unknown --locked -- -D warnings
           .tools/release/avm-sdk-linux-x86_64/bin/avm-contract-build build --manifest-path contract/Cargo.toml
+          .tools/release/avm-sdk-linux-x86_64/bin/avm-contract-build build --manifest-path tests/stand/receipt/Cargo.toml
           rustc --edition=2021 tools/check-abi-ids.rs -o .tools/check-abi-ids
           .tools/check-abi-ids contract/target/avm/contract.acab
       - name: Deploy and replay in native stand
@@ -37,6 +41,7 @@ jobs:
           bash scripts/stand-e2e.sh \
             .tools/release/avm-sdk-linux-x86_64 \
             contract/target/avm \
+            tests/stand/receipt/target/avm \
             .stand/native
       - name: Upload stand diagnostics
         if: always()

@@ -1,0 +1,11 @@
+[package]
+name = "ackivault-stand-receipt"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+avm-contract-sdk = { git = "https://github.com/gosh-sh/avm-sdk.git", rev = "0cbca40fad9a8f11863197cbcbaf6208651752b9" }

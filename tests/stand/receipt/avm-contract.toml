@@ -1,0 +1,15 @@
+[descriptor]
+execution_mode = "message_isolated"
+state_schema_id = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+
+[abi]
+state_root_type_id = 1
+
+[[abi.types]]
+id = 1
+kind = "fixed_bytes"
+name = "receipt_state"
+len = 160
+
+[[abi.methods]]
+name = "ackivault.deposit"

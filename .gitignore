@@ -1,3 +1,4 @@
 /.tools/
 /.stand/
 /contract/target/
+/tests/stand/receipt/target/

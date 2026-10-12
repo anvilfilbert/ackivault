@@ -1,22 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ "$#" -ne 3 ]]; then
-  echo 'usage: stand-e2e.sh <sdk-root> <artifacts-dir> <output-dir>' >&2
+if [[ "$#" -ne 4 ]]; then
+  echo 'usage: stand-e2e.sh <sdk-root> <vault-artifacts-dir> <receipt-artifacts-dir> <output-dir>' >&2
   exit 2
 fi
 
 sdk_root="$1"
-artifacts_dir="$2"
-output_dir="$3"
+vault_artifacts_dir="$2"
+receipt_artifacts_dir="$3"
+output_dir="$4"
 stand="${sdk_root}/bin/avm-local-stand"
 profile="${sdk_root}/profiles/wasmtime-release-profile.v1"
 state="${output_dir}/developer.state"
 dapp_id='1111111111111111111111111111111111111111111111111111111111111111'
-dummy_account='5555555555555555555555555555555555555555555555555555555555555555'
 deposit_method='16807661482522038394'
 
-for required_file in "$stand" "$profile" "${artifacts_dir}/contract.wasm" "${artifacts_dir}/contract.acab" "${artifacts_dir}/contract.descriptor"; do
+for required_file in "$stand" "$profile" \
+  "${vault_artifacts_dir}/contract.wasm" "${vault_artifacts_dir}/contract.acab" "${vault_artifacts_dir}/contract.descriptor" \
+  "${receipt_artifacts_dir}/contract.wasm" "${receipt_artifacts_dir}/contract.acab" "${receipt_artifacts_dir}/contract.descriptor"; do
   if [[ ! -f "$required_file" ]]; then
     echo "required file missing: ${required_file}" >&2
     exit 2
@@ -34,10 +36,11 @@ rustc --edition=2021 -D warnings tools/stand-args.rs -o "${output_dir}/stand-arg
 developer_key="$(jq -er '.identities.developer' "${output_dir}/init.json")"
 user_key="$(jq -er '.identities.user' "${output_dir}/init.json")"
 
-deploy_vault() {
+deploy_contract() {
   local salt_hex="$1"
   local init_json="$2"
   local result_prefix="$3"
+  local contract_artifacts="$4"
   local result_file="${output_dir}/${result_prefix}-funding-required.json"
   local exit_status
   local address
@@ -45,9 +48,9 @@ deploy_vault() {
   set +e
   "$stand" deploy \
     --state "$state" --wasmtime-profile "$profile" \
-    --wasm "${artifacts_dir}/contract.wasm" \
-    --acab "${artifacts_dir}/contract.acab" \
-    --descriptor "${artifacts_dir}/contract.descriptor" \
+    --wasm "${contract_artifacts}/contract.wasm" \
+    --acab "${contract_artifacts}/contract.acab" \
+    --descriptor "${contract_artifacts}/contract.descriptor" \
     --salt-hex "$salt_hex" --init-json "$init_json" \
     --block-time 1800000000 --created-at 1800000000 --expire-at 1800003600 \
     --fuel-fee-shells 1000 > "$result_file"
@@ -62,9 +65,9 @@ deploy_vault() {
     --address "$address" --shells 100000 > "${output_dir}/${result_prefix}-fund.json"
   if ! "$stand" deploy \
     --state "$state" --wasmtime-profile "$profile" \
-    --wasm "${artifacts_dir}/contract.wasm" \
-    --acab "${artifacts_dir}/contract.acab" \
-    --descriptor "${artifacts_dir}/contract.descriptor" \
+    --wasm "${contract_artifacts}/contract.wasm" \
+    --acab "${contract_artifacts}/contract.acab" \
+    --descriptor "${contract_artifacts}/contract.descriptor" \
     --salt-hex "$salt_hex" --init-json "$init_json" \
     --block-time 1800000000 --created-at 1800000000 --expire-at 1800003600 \
     --fuel-fee-shells 1000 > "${output_dir}/${result_prefix}-deploy.json"; then
@@ -75,11 +78,11 @@ deploy_vault() {
   jq -e '.status == "ok"' "${output_dir}/${result_prefix}-deploy.json" >/dev/null
 }
 
-receiver_args="$("${output_dir}/stand-args" "$user_key" 1800007200 1000 "${dapp_id}:${dummy_account}" "$deposit_method" 5)"
-deploy_vault '7265636569766572' "$receiver_args" receiver
+deploy_contract '7265636569766572' null receiver "$receipt_artifacts_dir"
 receiver_address="$(jq -er '.address' "${output_dir}/receiver-funding-required.json")"
+"$stand" inspect --state "$state" --wasmtime-profile "$profile" > "${output_dir}/receiver-inspect.json"
 main_args="$("${output_dir}/stand-args" "$user_key" 1800007200 1000 "$receiver_address" "$deposit_method" 5)"
-deploy_vault '6d61696e' "$main_args" main
+deploy_contract '6d61696e' "$main_args" main "$vault_artifacts_dir"
 main_address="$(jq -er '.address' "${output_dir}/main-funding-required.json")"
 
 "$stand" inspect --state "$state" --wasmtime-profile "$profile" > "${output_dir}/inspect.json"
