@@ -14,7 +14,7 @@ AckiVault is an experimental Rust smart contract for the [Acki Nacki AVM](https:
 
 The [local web console](console/README.md) exposes the test flow: create, fund, pay, inspect, revoke and withdraw. It shows allowance usage, expiry, recipients and accepted/rejected execution receipts. A separate read-only viewer displays saved CI evidence on hosts that cannot run the native stand.
 
-**Status: working local AVM demonstration, not an audited or network-deployed wallet.** Neither console entrypoint connects to Shellnet or Mainnet. No real keys, funded network accounts or network deployment configuration belong in this repository. Do not deposit real funds.
+**Status: active development and security testing ongoing.** This is a working local AVM demonstration, not an independently audited or network-deployed wallet. Deeper adversarial testing is in progress; passing tests are not approval for real funds. Neither console entrypoint connects to Shellnet or Mainnet. No real keys, funded network accounts or network deployment configuration belong in this repository. Do not deposit real funds.
 
 ## Start reviewing
 
