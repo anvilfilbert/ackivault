@@ -55,10 +55,21 @@ impl Contract for Receipt {
                 state[120] = u8::from(message.extra.iter().next().is_some());
             }
         }
-        let Ok(fields_binary) = encode_event_fields(&[EventField {
-            name: "snapshot".into(),
-            value: EventValue::Data(state.clone()),
-        }]) else {
+        let body = input.message.body();
+        let mut body_tail = vec![0_u8; 512];
+        let tail_start = body.len().saturating_sub(body_tail.len());
+        let tail = &body[tail_start..];
+        body_tail[..tail.len()].copy_from_slice(tail);
+        let Ok(fields_binary) = encode_event_fields(&[
+            EventField {
+                name: "body_tail".into(),
+                value: EventValue::Data(body_tail),
+            },
+            EventField {
+                name: "snapshot".into(),
+                value: EventValue::Data(state.clone()),
+            },
+        ]) else {
             return MessageOutput::failure(1005);
         };
         let mut output = MessageOutput::success(StateUpdate::FullReplace(state));

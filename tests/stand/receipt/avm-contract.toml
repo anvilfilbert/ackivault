@@ -11,6 +11,12 @@ kind = "fixed_bytes"
 name = "receipt_state"
 len = 160
 
+[[abi.types]]
+id = 2
+kind = "fixed_bytes"
+name = "deploy_body_tail"
+len = 512
+
 [[abi.methods]]
 name = "ackivault.deposit"
 
@@ -19,5 +25,10 @@ name = "stand.init_probe"
 
 [[abi.events.fields]]
 id = 1
+type_id = 2
+name = "body_tail"
+
+[[abi.events.fields]]
+id = 2
 type_id = 1
 name = "snapshot"
