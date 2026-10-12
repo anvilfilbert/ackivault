@@ -9,3 +9,6 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 avm-contract-sdk = { git = "https://github.com/gosh-sh/avm-sdk.git", rev = "0cbca40fad9a8f11863197cbcbaf6208651752b9" }
+
+[dev-dependencies]
+proptest = { version = "=1.12.0", default-features = false, features = ["std"] }

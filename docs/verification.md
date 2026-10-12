@@ -60,6 +60,32 @@ A stand transport receipt can report `status: ok` while the contract rejects a c
 
 ## Scope of the proof
 
+### Development and security testing ongoing
+
+This is a local demonstration under active adversarial testing, not an independent security audit. The additional checks use test identities only and do not authorize real funds or network deployment.
+
+The contract suite includes generated payment sequences with independently budgeted allowances, interleaved owner inspections, replay attempts and fixed-recipient checks. It also covers revocation/recovery, expiry equality, both arithmetic overflow boundaries, maximum nonces, and state-codec invariants. `proptest` is a pinned development-only dependency. CI runs 1,024 cases per property with a recorded seed; a larger repeatable local run is:
+
+```sh
+PROPTEST_CASES=4096 PROPTEST_RNG_SEED=20261013 \
+  cargo test --manifest-path contract/Cargo.toml --locked
+```
+
+Change the seed for additional exploration; retain a failing seed and minimized input. These are bounded generated tests, not exhaustive verification or coverage-guided fuzzing. The adapter suite separately checks that truncated state emits no effects and that funding an exhausted grant does not restore allowance.
+
+The console suite rejects every truncated prefix and every one-byte extension of six real native receipt frames, mismatched receipt state, unexpected rejection events and unsafe HTTP requests. Use the actual receipts and environment described above; no fabricated successful chain responses substitute for them.
+
+The native console suite also injects receipt loss **after the real stand executes a payment**. A test-only process wrapper preserves the complete response, then truncates stdout. The test requires the console to halt, a retry to leave the stand state file unchanged, and an independent call through the original binary to observe exactly one recipient payment. The `receipt-loss-*` evidence contains the executed payment and independent recipient receipt; stand state files and identities are not uploaded.
+
+### Remaining release gates
+
+- Host cryptographic verification and signature binding to the intended vault/network; the pinned CLI cannot submit raw forged or chosen-nonce messages.
+- Host-level atomicity, fuel exhaustion, failed-delivery/refund accounting and crash/restart behavior beyond the tested receipt-loss boundary.
+- Coverage-guided parser fuzzing, broader arbitrary action sequences and an independent AVM-aware review.
+- Target-network compatibility and a separately approved deployment procedure before any network use.
+
+The [pinned SDK release notes](https://github.com/gosh-sh/avm-sdk/blob/0cbca40fad9a8f11863197cbcbaf6208651752b9/docs/releases.md) state that the runtime binaries come from private sources. Public guest tests and SDK source inspection cannot replace review of that host implementation. Record an unavailable check as a gap, not a passing result.
+
 The canonical adapter tests also exercise duplicate nonces, wrong caller types, malformed inputs and deployment envelope boundaries. The stand CLI generates fresh signed calls and has no raw-message or chosen-nonce submission option, so duplicate-nonce rejection is proven at the adapter boundary rather than by a native resubmission.
 
 These results establish local guest behavior against the pinned AVM distribution. Network compatibility and the host's cryptographic signature verification are separate claims. The repository has no network deployment procedure or real wallet credentials.

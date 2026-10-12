@@ -33,6 +33,9 @@ jobs:
             '.tools/release/avm-sdk-linux-x86_64.tar.gz' | sha256sum --check
           tar -xzf .tools/release/avm-sdk-linux-x86_64.tar.gz -C .tools/release
       - name: Test and build contract
+        env:
+          PROPTEST_CASES: '1024'
+          PROPTEST_RNG_SEED: '20261013'
         run: |
           cargo fmt --manifest-path contract/Cargo.toml --check
           cargo test --manifest-path contract/Cargo.toml --locked
@@ -80,4 +83,6 @@ jobs:
           path: |
             .stand/native/*.json
             .stand/console/session-*/*.json
+            .stand/console/receipt-loss-*/executed-payment.json
+            .stand/console/receipt-loss-*/verified-recipient.json
           if-no-files-found: ignore

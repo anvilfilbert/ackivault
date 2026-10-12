@@ -194,6 +194,102 @@ fn assert_effect_free(output: MessageOutput) {
     assert!(output.state_update.is_none());
     assert!(output.outbound_intents.is_empty());
     assert!(output.event_intents.is_empty());
+    assert!(output.callback_intents.is_empty());
+}
+
+#[test]
+fn funded_spent_grant_keeps_its_cap_and_rejects_active_owner_withdrawal() {
+    let payment = process(&external_input(
+        [2; 32],
+        0,
+        PAY_METHOD_ID,
+        &pay_args(95),
+        &vault_state(),
+        99,
+        100,
+        0,
+        0,
+    ));
+    assert_eq!(payment.status_code, 0);
+    let Some(StateUpdate::FullReplace(spent)) = payment.state_update else {
+        panic!("accepted payment must persist the exhausted cap");
+    };
+    let deposit = process(&internal_input(DEPOSIT_METHOD_ID, &[], &spent, 100, 0));
+    assert_eq!(deposit.status_code, 0);
+    assert_eq!(
+        deposit.state_update,
+        Some(StateUpdate::FullReplace(spent.clone()))
+    );
+    let payment = process(&external_input(
+        [2; 32],
+        1,
+        PAY_METHOD_ID,
+        &pay_args(1),
+        &spent,
+        99,
+        100,
+        0,
+        0,
+    ));
+    assert_eq!(payment.status_code, 1024);
+    assert_effect_free(payment);
+    let recovery = process(&external_input(
+        [1; 32],
+        0,
+        WITHDRAW_METHOD_ID,
+        &withdraw_args(),
+        &spent,
+        99,
+        100,
+        0,
+        0,
+    ));
+    assert_eq!(recovery.status_code, 1019);
+    assert_effect_free(recovery);
+    let expired = process(&external_input(
+        [1; 32],
+        0,
+        WITHDRAW_METHOD_ID,
+        &withdraw_args(),
+        &spent,
+        100,
+        100,
+        0,
+        0,
+    ));
+    assert_eq!(expired.status_code, 0);
+    let Some(StateUpdate::FullReplace(recovered)) = expired.state_update else {
+        panic!("expired owner recovery must persist state");
+    };
+    assert_eq!(
+        decode_state(&recovered).expect("canonical state").spent,
+        100
+    );
+}
+
+#[test]
+fn malformed_state_cannot_produce_any_effects_even_for_deposits() {
+    let state = vault_state();
+    for length in 0..state.len() {
+        assert_effect_free(process(&external_input(
+            [2; 32],
+            0,
+            PAY_METHOD_ID,
+            &pay_args(1),
+            &state[..length],
+            99,
+            100,
+            0,
+            0,
+        )));
+        assert_effect_free(process(&internal_input(
+            DEPOSIT_METHOD_ID,
+            &[],
+            &state[..length],
+            20,
+            0,
+        )));
+    }
 }
 
 #[test]

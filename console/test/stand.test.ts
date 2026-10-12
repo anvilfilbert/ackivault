@@ -1,18 +1,52 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { LocalStand } from "../src/stand.js";
 import { createLiveServer, listen } from "../src/http.js";
-import { snapshotSchema } from "../src/model.js";
-import { decodeCall, verifyFunding } from "../src/receipts.js";
+import { RequestError, snapshotSchema } from "../src/model.js";
+import { decodeCall, decodeRecipient, decodeVault, verifyFunding } from "../src/receipts.js";
 import { hostStatus } from "./http-request.js";
+import { nativeRecipientSnapshot, receiptLossSdk } from "./receipt-loss.js";
 
 function required(name: string): string {
   const value: string = process.env[name] ?? "";
   assert.notEqual(value, "", `${name} must identify the actual native stand input`);
   return path.resolve(value);
 }
+
+test("a real executed payment with a lost receipt halts the console without repeating the transfer", async (): Promise<void> => {
+  const sdkRoot = required("ACKIVAULT_SDK_ROOT");
+  const stateParent = required("ACKIVAULT_CONSOLE_STATE");
+  await mkdir(stateParent, { recursive: true });
+  const faults = await mkdtemp(path.join(stateParent, "receipt-loss-"));
+  const stand = new LocalStand({
+    sdkRoot: await receiptLossSdk(sdkRoot, faults),
+    vaultArtifacts: required("ACKIVAULT_VAULT_ARTIFACTS"),
+    receiptArtifacts: required("ACKIVAULT_RECEIPT_ARTIFACTS"),
+    stateParent,
+  });
+  const created = await stand.execute({ action: "create" });
+  const receiver = created.vault!.recipients[0]!.address;
+  await stand.execute({ action: "fund" });
+  await assert.rejects(stand.execute({ action: "pay", amount: "10" }), SyntaxError);
+  assert.deepEqual(stand.snapshot().availableActions, []);
+  assert.notEqual(stand.snapshot().failure, null);
+  const payment = decodeCall(await readFile(path.join(faults, "executed-payment.json"), "utf8"));
+  assert.equal(payment.statusCode, 0);
+  assert.equal(decodeVault(payment.raw_state).spent, "15");
+  const stateFile = path.join(stand.evidenceDirectory, "developer.state");
+  const beforeRetry = await readFile(stateFile);
+  await assert.rejects(stand.execute({ action: "pay", amount: "10" }), (error: Error): boolean => error instanceof RequestError && error.status === 409);
+  assert.deepEqual(await readFile(stateFile), beforeRetry);
+  // Query actual recipient state with the original binary, not the fault proxy or UI.
+  const time = Math.max(Math.floor(Date.now() / 1000), ...stand.snapshot().activity.map((entry): number => entry.time)) + 100;
+  const recipientReceipt = await nativeRecipientSnapshot(sdkRoot, stateFile, receiver, time);
+  await writeFile(path.join(faults, "verified-recipient.json"), recipientReceipt, { flag: "wx", mode: 0o600 });
+  const delivered = decodeCall(recipientReceipt);
+  assert.equal(delivered.statusCode, 0);
+  assert.deepEqual(decodeRecipient(delivered.raw_state), { received: "10", count: "1" });
+});
 
 test("native console transfers, enforces its grant and rejects unsafe requests", async (): Promise<void> => {
   const stand = new LocalStand({
