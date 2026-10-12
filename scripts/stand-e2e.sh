@@ -94,12 +94,36 @@ pay_args='"0x000a000000000000000000000000000000"'
   --identity user --value-main 0 --extra-currencies '' \
   --block-time 1800000010 --created-at 1800000009 --expire-at 1800003609 \
   --fuel-fee-shells 1000 > "${output_dir}/pay.json"
-jq -e '.status == "ok"' "${output_dir}/pay.json" >/dev/null
+jq -e '.status == "ok" and .method == "ackivault.pay" and
+  .raw_state[170:202] == "0f000000000000000000000000000000" and
+  (.events | length) == 1' "${output_dir}/pay.json" >/dev/null
+
+over_cap_args='"0x00da030000000000000000000000000000"'
+set +e
+"$stand" call --state "$state" --wasmtime-profile "$profile" \
+  --address "$main_address" --method ackivault.pay --args-json "$over_cap_args" \
+  --identity user --value-main 0 --extra-currencies '' \
+  --block-time 1800000020 --created-at 1800000019 --expire-at 1800003619 \
+  --fuel-fee-shells 1000 > "${output_dir}/over-cap.json"
+over_cap_status="$?"
+set -e
+if [[ "$over_cap_status" -eq 0 ]]; then
+  echo 'over-cap payment unexpectedly succeeded' >&2
+  exit 1
+fi
 
 "$stand" inspect --state "$state" --wasmtime-profile "$profile" > "${output_dir}/inspect.json"
 jq -e --arg receiver "$receiver_address" --arg main "$main_address" \
   '.status == "ok" and (.accounts | any(.address == $receiver)) and (.accounts | any(.address == $main))' \
   "${output_dir}/inspect.json" >/dev/null
+receiver_before="$(jq -er --arg address "$receiver_address" \
+  '.accounts[] | select(.address == $address) | .account_hash' "${output_dir}/receiver-inspect.json")"
+receiver_after="$(jq -er --arg address "$receiver_address" \
+  '.accounts[] | select(.address == $address) | .account_hash' "${output_dir}/inspect.json")"
+if [[ "$receiver_before" == "$receiver_after" ]]; then
+  echo 'recipient account did not change after dispatched payment' >&2
+  exit 1
+fi
 "$stand" replay --state "$state" --wasmtime-profile "$profile" > "${output_dir}/replay.json"
 jq -e '.status == "ok"' "${output_dir}/replay.json" >/dev/null
 printf 'stand deploy and replay verified: %s %s\n' "$receiver_address" "$main_address"
