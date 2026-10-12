@@ -94,7 +94,8 @@ forward_args="\"${main_address}\""
   --identity user --value-main 0 --extra-currencies '' \
   --block-time 1800000005 --created-at 1800000004 --expire-at 1800003604 \
   --fuel-fee-shells 1000 > "${output_dir}/deposit.json"
-jq -e '.status == "ok"' "${output_dir}/deposit.json" >/dev/null
+jq -e '.status == "ok" and .raw_executor_output[8:16] == "00000000" and
+  (.events | length) == 1' "${output_dir}/deposit.json" >/dev/null
 
 pay_args='"0x000a000000000000000000000000000000"'
 "$stand" call --state "$state" --wasmtime-profile "$profile" \
@@ -104,7 +105,7 @@ pay_args='"0x000a000000000000000000000000000000"'
   --fuel-fee-shells 1000 > "${output_dir}/pay.json"
 jq -e '.status == "ok" and .method == "ackivault.pay" and
   .raw_state[170:202] == "0f000000000000000000000000000000" and
-  (.events | length) == 1' "${output_dir}/pay.json" >/dev/null
+  (.events | length) == 2' "${output_dir}/pay.json" >/dev/null
 
 over_cap_args='"0x00da030000000000000000000000000000"'
 "$stand" call --state "$state" --wasmtime-profile "$profile" \
@@ -116,6 +117,45 @@ jq -e --slurpfile pay "${output_dir}/pay.json" \
   '.status == "ok" and .raw_executor_output[8:16] == "00040000" and
   .raw_state == $pay[0].raw_state and (.events | length) == 0' \
   "${output_dir}/over-cap.json" >/dev/null
+
+wrong_key_args='"0x0001000000000000000000000000000000"'
+"$stand" call --state "$state" --wasmtime-profile "$profile" \
+  --address "$main_address" --method ackivault.pay --args-json "$wrong_key_args" \
+  --identity developer --value-main 0 --extra-currencies '' \
+  --block-time 1800000030 --created-at 1800000029 --expire-at 1800003629 \
+  --fuel-fee-shells 1000 > "${output_dir}/wrong-key.json"
+jq -e --slurpfile pay "${output_dir}/pay.json" \
+  '.status == "ok" and .raw_executor_output[8:16] == "f4030000" and
+  .raw_state == $pay[0].raw_state and (.events | length) == 0' \
+  "${output_dir}/wrong-key.json" >/dev/null
+
+"$stand" call --state "$state" --wasmtime-profile "$profile" \
+  --address "$main_address" --method ackivault.revoke --args-json null \
+  --identity developer --value-main 0 --extra-currencies '' \
+  --block-time 1800000040 --created-at 1800000039 --expire-at 1800003639 \
+  --fuel-fee-shells 1000 > "${output_dir}/revoke.json"
+jq -e '.status == "ok" and .raw_executor_output[8:16] == "00000000" and
+  .raw_state[202:204] == "01" and (.events | length) == 1' \
+  "${output_dir}/revoke.json" >/dev/null
+
+"$stand" call --state "$state" --wasmtime-profile "$profile" \
+  --address "$main_address" --method ackivault.pay --args-json "$wrong_key_args" \
+  --identity user --value-main 0 --extra-currencies '' \
+  --block-time 1800000050 --created-at 1800000049 --expire-at 1800003649 \
+  --fuel-fee-shells 1000 > "${output_dir}/revoked-pay.json"
+jq -e --slurpfile revoke "${output_dir}/revoke.json" \
+  '.status == "ok" and .raw_executor_output[8:16] == "fa030000" and
+  .raw_state == $revoke[0].raw_state and (.events | length) == 0' \
+  "${output_dir}/revoked-pay.json" >/dev/null
+
+withdraw_args="\"0x${receiver_address/:/}7ad0bd4a11cf40e90500000000000000000000000000000007000000000000000000000000000000\""
+"$stand" call --state "$state" --wasmtime-profile "$profile" \
+  --address "$main_address" --method ackivault.withdraw --args-json "$withdraw_args" \
+  --identity developer --value-main 0 --extra-currencies '' \
+  --block-time 1800000060 --created-at 1800000059 --expire-at 1800003659 \
+  --fuel-fee-shells 1000 > "${output_dir}/withdraw.json"
+jq -e '.status == "ok" and .raw_executor_output[8:16] == "00000000" and
+  (.events | length) == 2' "${output_dir}/withdraw.json" >/dev/null
 
 "$stand" inspect --state "$state" --wasmtime-profile "$profile" > "${output_dir}/inspect.json"
 jq -e --arg receiver "$receiver_address" --arg main "$main_address" \
