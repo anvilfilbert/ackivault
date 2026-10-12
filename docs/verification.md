@@ -4,19 +4,43 @@ AckiVault demonstrates a bounded SHELL allowance for a separate agent key. The o
 
 ## Reproduce the evidence
 
-Use the source commit recorded by a successful `AckiVault local stand` workflow run. Its native Linux runner installs the pinned Rust toolchain, verifies the SDK archive checksum, runs the Rust tests and Clippy, checks both builds for byte identity, then executes the local AVM stand journey. The workflow can be rerun through GitHub Actions or followed on a Linux x86-64-v3 machine.
+Use the source commit recorded by a successful `AckiVault local stand` workflow run. Its native Linux runner installs the pinned Rust toolchain, verifies the SDK archive checksum, runs the Rust tests and Clippy, checks both builds for byte identity, then executes the local AVM stand journey.
 
-After building both contracts with the matching `avm-contract-build`, run:
+For a native reproduction, use Linux x86-64-v3 with Bash, Git, Rustup, `curl`, `tar`, `sha256sum` and `jq` installed. Node.js 22.18 or later in the 22.x line is needed for the console checks. Start from the repository root at the source commit being reviewed. Fetch the matching SDK distribution:
+
+```sh
+rustup toolchain install 1.93.0 --profile minimal \
+  --component clippy --component rustfmt --target wasm32-unknown-unknown
+mkdir -p .tools/release
+curl --fail --location --retry 3 --retry-all-errors --retry-delay 2 \
+  --output .tools/release/avm-sdk-linux-x86_64.tar.gz \
+  https://github.com/gosh-sh/avm-sdk/releases/download/avm-dev-335a0f09fdbc-sdk-0cbca40fad9a/avm-sdk-linux-x86_64.tar.gz
+printf '%s  %s\n' \
+  '2171ee865bc9fc2e1a1274dfdd0f4330dc362b1f49d38c0a35c4de41aa61d6f3' \
+  '.tools/release/avm-sdk-linux-x86_64.tar.gz' | sha256sum --check
+```
+
+Only continue after the checksum passes:
+
+```sh
+tar -xzf .tools/release/avm-sdk-linux-x86_64.tar.gz -C .tools/release
+.tools/release/avm-sdk-linux-x86_64/bin/avm-contract-build build --manifest-path contract/Cargo.toml
+.tools/release/avm-sdk-linux-x86_64/bin/avm-contract-build build --manifest-path tests/stand/receipt/Cargo.toml
+```
+
+Run the native journey:
 
 ```sh
 bash scripts/stand-e2e.sh \
-  /path/to/avm-sdk-linux-x86_64 \
+  .tools/release/avm-sdk-linux-x86_64 \
   contract/target/avm \
   tests/stand/receipt/target/avm \
   .stand/reviewer-run
 ```
 
 The output directory must not already contain a stand state file. All identities and funds belong to the local stand. Download `stand-diagnostics` from the workflow run to inspect the JSON receipts for that exact commit.
+
+The [CI workflow](../.github/workflows/stand-e2e.yml) is the complete automated test recipe, including formatting, Clippy and the clean rebuild comparison. Follow the [console instructions](../console/README.md) for the interactive local test or read-only evidence viewer.
 
 ## What the receipts prove
 

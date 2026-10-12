@@ -4,3 +4,7 @@
 /tests/stand/receipt/target/
 /console/node_modules/
 /console/dist/
+.DS_Store
+.env
+.env.*
+!.env.example

@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
 import { actionSchema, amountValue, RequestError, snapshotSchema, type Action, type Activity, type Snapshot } from "./model.js";
-import { addressSchema, decodeCall, decodeInspection, decodeRecipient, decodeVault, hashSchema, receiptSchema, verifyDelivery, type Call } from "./receipts.js";
+import { addressSchema, decodeCall, decodeInspection, decodeRecipient, decodeVault, hashSchema, receiptSchema, verifyDelivery, verifyFunding, type Call } from "./receipts.js";
 
 type Config = { sdkRoot: string; vaultArtifacts: string; receiptArtifacts: string; stateParent: string };
 type CommandResult = { code: number; stdout: string; stderr: string; file: string };
@@ -157,7 +157,7 @@ export class LocalStand {
     if (action.action === "inspect") { await this.inspect(); return; }
     if (action.action === "fund") {
       const call = await this.call(session.receiver, "stand.forward_deposit", JSON.stringify(session.vault), "user", "100");
-      if (call.statusCode !== 0) throw new RequestError(502, `Fixture funding rejected with status ${call.statusCode}`);
+      verifyFunding(call, session.vault);
     } else if (action.action === "revoke") {
       await this.call(session.vault, "ackivault.revoke", "null", "package-owner", null);
     } else {

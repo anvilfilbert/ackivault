@@ -1,24 +1,48 @@
 # AckiVault
 
-AckiVault is an experimental AVM Rust contract for a bounded SHELL-spending grant. The deployment signer owns the vault. A separate agent may send SHELL only to one of up to four immutable recipients, before expiry and within a cap that includes each recipient's fixed outbound reserve. The owner may revoke the grant and withdraw after revocation or expiry.
+[![Local AVM verification](https://github.com/anvilfilbert/ackivault/actions/workflows/stand-e2e.yml/badge.svg?branch=main)](https://github.com/anvilfilbert/ackivault/actions/workflows/stand-e2e.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-This repository is local-test-only. It contains no real keys, deployed addresses, mainnet configuration, or network deployment procedure. A passing test run is not a security audit or authorization to deposit real funds.
+**Give an agent spending authority without giving it unrestricted control.**
+
+AckiVault is an experimental Rust smart contract for the [Acki Nacki AVM](https://github.com/gosh-sh/avm-sdk). The owner funds a vault and gives a separate agent a bounded SHELL-spending grant:
+
+- **Capped spending:** one cumulative allowance, including each payment's fixed outbound reserve.
+- **Fixed recipients:** up to four recipient contracts, selected at deployment.
+- **An expiry:** agent payments stop at the configured block time.
+- **Owner control:** permanent revocation and recovery after revocation or expiry.
+
+The [local web console](console/README.md) exposes the test flow: create, fund, pay, inspect, revoke and withdraw. It shows allowance usage, expiry, recipients and accepted/rejected execution receipts. A separate read-only viewer displays saved CI evidence on hosts that cannot run the native stand.
+
+**Status: working local AVM demonstration, not an audited or network-deployed wallet.** Neither console entrypoint connects to Shellnet or Mainnet. No real keys, funded network accounts or network deployment configuration belong in this repository. Do not deposit real funds.
+
+## Start reviewing
+
+- [Verification guide](docs/verification.md): reproduce the journey and inspect its receipts.
+- [Native CI runs](https://github.com/anvilfilbert/ackivault/actions/workflows/stand-e2e.yml): Rust checks, clean rebuild comparison, recipient delivery and journal replay.
+- [Contract source](contract/src) and [behavior tests](contract/tests).
+- [Design and trust boundaries](docs/superpowers/specs/2026-10-12-ackivault-design.md).
 
 ## Verify
 
-The pinned Rust version is in `rust-toolchain.toml`; the pinned AVM SDK revision is in `contract/Cargo.toml`. On a compatible Linux x86-64 host with the [AVM SDK](https://github.com/gosh-sh/avm-sdk) tools installed:
+Use Linux x86-64-v3 with Rustup and `jq`. Install the [pinned AVM SDK release](https://github.com/gosh-sh/avm-sdk/releases/tag/avm-dev-335a0f09fdbc-sdk-0cbca40fad9a), and put its `bin/` directory on `PATH`. Do not mix the packaged stand with a different SDK revision. The Rust version is pinned in `rust-toolchain.toml`; Cargo pins the matching SDK source.
 
 ```sh
 cargo fmt --manifest-path contract/Cargo.toml --check
 cargo test --manifest-path contract/Cargo.toml --locked
 cargo clippy --manifest-path contract/Cargo.toml --target wasm32-unknown-unknown --locked -- -D warnings
 avm-contract-build build --manifest-path contract/Cargo.toml
+avm-contract-build build --manifest-path tests/stand/receipt/Cargo.toml
 ```
 
-The [CI workflow](.github/workflows/stand-e2e.yml) also builds the test recipient and runs `scripts/stand-e2e.sh` against the native Linux AVM stand. It checks local deployment, an internal SHELL deposit, recipient delivery, rejected payments, revocation, owner withdrawal, and deterministic replay. The stand profile requires x86-64-v3; a translated amd64 container on an ARM Mac does not establish this integration result.
+Then run the local journey using the command in the [verification guide](docs/verification.md), or start the [console](console/README.md). The [CI workflow](.github/workflows/stand-e2e.yml) is the complete automated recipe, including the SDK archive checksum and both contract builds. Node.js 22 is needed only for the console and its tests.
 
-The contract behavior and security boundaries are defined in the [design spec](docs/superpowers/specs/2026-10-12-ackivault-design.md). The Rust tests check replay nonces and malformed input that the stand CLI cannot directly submit as duplicate signed messages.
+A translated amd64 container on an ARM Mac does not establish native-stand compatibility. The Mac can run the read-only evidence viewer; actual guest execution is verified on native Linux CI.
 
-For independent reproduction and the receipt checklist, use the [reviewer verification guide](docs/verification.md).
+## Important boundaries
 
-The [local web console](console/README.md) shows allowance, expiry, fixed recipients and actual execution receipts. Its native-stand controls create, fund, pay, revoke and withdraw using test funds only. A separate read-only evidence viewer runs on an ARM Mac. Neither entrypoint connects to Shellnet or Mainnet.
+The cap covers payment amounts and configured outbound reserves, not every protocol fee. Dispatch is not delivery: the integration journey checks recipient state. The AVM host remains responsible for cryptographic signature verification; Rust adapter tests do not prove that host boundary. See the design and verification guide for the full scope.
+
+## License and security
+
+[MIT](LICENSE). Report vulnerabilities through [private security reporting](SECURITY.md); use GitHub issues for non-sensitive bugs and reproducibility questions.

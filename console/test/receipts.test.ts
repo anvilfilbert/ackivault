@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
-import { decodeCall, decodeVault, decodeRecipient } from "../src/receipts.js";
+import { addressSchema, decodeCall, decodeVault, decodeRecipient, ReceiptError, verifyFunding } from "../src/receipts.js";
 import * as receipts from "../src/receipts.js";
 
 const evidenceDirectory: string = process.env.ACKIVAULT_EVIDENCE_DIR ?? "";
@@ -33,6 +33,33 @@ test("real recipient receipts distinguish payment delivery from owner withdrawal
   const withdrawn = decodeRecipient(decodeCall(await receipt("recipient-after-withdraw")).raw_state);
   assert.deepEqual(paid, { received: "10", count: "1" });
   assert.deepEqual(withdrawn, { received: "17", count: "2" });
+});
+
+test("real funding receipt confirms 100 units accepted by the expected vault", async (): Promise<void> => {
+  const funding = decodeCall(await receipt("deposit"));
+  const deployment: { address: string } = JSON.parse(await receipt("main-funding-required"));
+  assert.doesNotThrow(() => verifyFunding(funding, addressSchema.parse(deployment.address)));
+});
+
+test("sender success cannot confirm missing, mismatched or malformed vault acceptance", async (): Promise<void> => {
+  const funding = decodeCall(await receipt("deposit"));
+  const deployment: { address: string } = JSON.parse(await receipt("main-funding-required"));
+  const recipient: { address: string } = JSON.parse(await receipt("receiver-funding-required"));
+  const vault = addressSchema.parse(deployment.address);
+  const event = funding.events[0]!;
+  const cases: { name: string; events: string[]; vault: string }[] = [
+    { name: "missing acceptance", events: [], vault },
+    { name: "duplicate acceptance", events: [event, event], vault },
+    { name: "another event class", events: [event.replace("6face8a8a6cdeb2a", "c3841027b8f21b57")], vault },
+    { name: "another vault", events: [event], vault: addressSchema.parse(recipient.address) },
+    { name: "101 instead of 100 units", events: [`${event.slice(0, -16)}6500000000000000`], vault },
+    { name: "truncated acceptance", events: [event.slice(0, -2)], vault },
+    { name: "trailing bytes", events: [`${event}00`], vault },
+    { name: "incorrect source pointer", events: [event.replace("1500000002010000", "1900000002010000")], vault },
+  ];
+  for (const entry of cases) {
+    assert.throws(() => verifyFunding({ ...funding, events: entry.events }, entry.vault), ReceiptError, entry.name);
+  }
 });
 
 test("malformed external receipts fail explicitly", (): void => {

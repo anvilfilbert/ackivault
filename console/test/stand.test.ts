@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { LocalStand } from "../src/stand.js";
 import { createLiveServer, listen } from "../src/http.js";
 import { snapshotSchema } from "../src/model.js";
+import { decodeCall, verifyFunding } from "../src/receipts.js";
 import { hostStatus } from "./http-request.js";
 
 function required(name: string): string {
@@ -34,10 +36,16 @@ test("native console transfers, enforces its grant and rejects unsafe requests",
     assert.equal((await action('{"action":"create"}', origin)).status, 409);
     const created = await creation;
     assert.equal(created.status, 200, await created.clone().text());
-    for (const body of ['{"action":"fund"}', '{"action":"pay","amount":"10"}']) {
-      const response = await action(body, origin);
-      assert.equal(response.status, 200, await response.clone().text());
-    }
+    const funding = await action('{"action":"fund"}', origin);
+    assert.equal(funding.status, 200, await funding.clone().text());
+    const funded = snapshotSchema.parse(await funding.json());
+    assert.notEqual(funded.vault, null);
+    assert.equal(funded.failure, null);
+    const fundingActivity = funded.activity.find((entry): boolean => entry.action === "stand.forward_deposit");
+    assert.notEqual(fundingActivity, undefined);
+    verifyFunding(decodeCall(await readFile(path.join(stand.evidenceDirectory, fundingActivity!.file), "utf8")), funded.vault!.address);
+    const payment = await action('{"action":"pay","amount":"10"}', origin);
+    assert.equal(payment.status, 200, await payment.clone().text());
     const paid = snapshotSchema.parse(await (await fetch(`${origin}/api/snapshot`)).json());
     assert.equal(paid.vault?.spent, "15");
     assert.equal(paid.delivery.received, "10");

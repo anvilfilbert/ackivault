@@ -2,6 +2,8 @@ name: AckiVault local stand
 
 on:
   pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -11,10 +13,13 @@ jobs:
   stand-e2e:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
+          package-manager-cache: false
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.93.0 --profile minimal --component clippy --component rustfmt --target wasm32-unknown-unknown
       - name: Fetch pinned AVM SDK release
@@ -69,7 +74,7 @@ jobs:
           npm run test:native
       - name: Upload stand diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: stand-diagnostics
           path: |
