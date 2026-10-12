@@ -84,4 +84,4 @@
 - [x] Run the runner to establish the failing end-to-end baseline.
 - [x] Add only the fixture/runner behavior needed to satisfy those assertions; inspect executor status, vault state, recipient receipt state, and events rather than trusting CLI exit status alone.
 - [x] Run the complete Rust suite, format, Clippy, two reproducible AVM builds, stand journey, and replay. Save a concise evidence summary outside tracked files if it includes local metadata.
-- [ ] Scan tracked files and commit metadata for personal/private data, review the final diff, then push the verified commit(s) to the repository.
+- [x] Scan tracked files and commit metadata for personal/private data, review the final diff, then push the verified commit(s) to the repository.
