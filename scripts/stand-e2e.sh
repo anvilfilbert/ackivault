@@ -88,6 +88,14 @@ main_args="$("${output_dir}/stand-args" "$user_key" 1800007200 1000 "$receiver_a
 deploy_contract '6d61696e' "$main_args" main "$vault_artifacts_dir"
 main_address="$(jq -er '.address' "${output_dir}/main-funding-required.json")"
 
+pay_args='"0x000a000000000000000000000000000000"'
+"$stand" call --state "$state" --wasmtime-profile "$profile" \
+  --address "$main_address" --method ackivault.pay --args-json "$pay_args" \
+  --identity user --value-main 0 --extra-currencies '' \
+  --block-time 1800000010 --created-at 1800000009 --expire-at 1800003609 \
+  --fuel-fee-shells 1000 > "${output_dir}/pay.json"
+jq -e '.status == "ok"' "${output_dir}/pay.json" >/dev/null
+
 "$stand" inspect --state "$state" --wasmtime-profile "$profile" > "${output_dir}/inspect.json"
 jq -e --arg receiver "$receiver_address" --arg main "$main_address" \
   '.status == "ok" and (.accounts | any(.address == $receiver)) and (.accounts | any(.address == $main))' \
