@@ -10,7 +10,7 @@ use crate::abi::{
     REVOKE_METHOD_ID, WITHDRAW_METHOD_ID,
 };
 use crate::grant::{pay, revoke, withdraw, Payment};
-use crate::initialization::initialize as initialize_state;
+use crate::initialization::{deployment_args, initialize as initialize_state};
 use crate::state::{decode_state, encode_state, VaultError};
 
 const SHELL_CURRENCY_ID: u32 = 2;
@@ -35,7 +35,8 @@ fn initialize_result(input: MessageInput<'_>) -> Result<MessageOutput, VaultErro
     if message.value_main != 0 || !message.extra.is_empty() {
         return Err(VaultError::InvalidIncomingValue);
     }
-    let state = initialize_state(caller_key, message.body, input.context.block_time)?;
+    let args = deployment_args(message.body)?;
+    let state = initialize_state(caller_key, args, input.context.block_time)?;
     Ok(MessageOutput::success(StateUpdate::FullReplace(
         encode_state(&state)?,
     )))

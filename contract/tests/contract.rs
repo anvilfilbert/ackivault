@@ -104,6 +104,17 @@ fn deployment_input(key: [u8; 32], body: &[u8], block_time: u32) -> Vec<u8> {
     input
 }
 
+fn deployment_body(salt: &[u8], args: &[u8]) -> Vec<u8> {
+    let mut body = vec![0_u8; 288];
+    body[..4].copy_from_slice(b"ACDP");
+    body[266..268].copy_from_slice(&(salt.len() as u16).to_le_bytes());
+    body[268..272].copy_from_slice(&(args.len() as u32).to_le_bytes());
+    body.extend_from_slice(salt);
+    body.extend_from_slice(args);
+    body.extend_from_slice(b"\0asm");
+    body
+}
+
 fn internal_input(
     method_id: u64,
     body: &[u8],
@@ -185,7 +196,7 @@ fn assert_effect_free(output: MessageOutput) {
 
 #[test]
 fn signed_external_initialization_sets_owner_and_grant() {
-    let frame = deployment_input([1; 32], &init_args(), 10);
+    let frame = deployment_input([1; 32], &deployment_body(b"main", &init_args()), 10);
     let input = decode_message_input(&frame).expect("canonical signed deployment");
     let output = AckiVault::init(input);
 
@@ -197,6 +208,19 @@ fn signed_external_initialization_sets_owner_and_grant() {
     assert_eq!(state.owner_key, [1; 32]);
     assert_eq!(state.agent_key, [2; 32]);
     assert_eq!(state.cap, 100);
+}
+
+#[test]
+fn deployment_rejects_raw_or_malformed_envelopes() {
+    let args = init_args();
+    assert_effect_free(AckiVault::init(
+        decode_message_input(&deployment_input([1; 32], &args, 10)).expect("canonical frame"),
+    ));
+    let mut malformed = deployment_body(b"main", &args);
+    malformed[266..268].copy_from_slice(&u16::MAX.to_le_bytes());
+    assert_effect_free(AckiVault::init(
+        decode_message_input(&deployment_input([1; 32], &malformed, 10)).expect("canonical frame"),
+    ));
 }
 
 #[test]
