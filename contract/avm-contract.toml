@@ -1,0 +1,54 @@
+[descriptor]
+execution_mode = "message_isolated"
+state_schema_id = "acacacacacacacacacacacacacacacacacacacacacacacacacacacacacacacac"
+
+[abi]
+state_root_type_id = 1
+
+[[abi.types]]
+id = 1
+kind = "fixed_bytes"
+name = "ackivault_state"
+len = 473
+
+[[abi.types]]
+id = 2
+kind = "fixed_bytes"
+name = "ackivault_init_args"
+len = 405
+
+[[abi.types]]
+id = 3
+kind = "fixed_bytes"
+name = "ackivault_pay_args"
+len = 17
+
+[[abi.types]]
+id = 4
+kind = "fixed_bytes"
+name = "ackivault_withdraw_args"
+len = 104
+
+[[abi.methods]]
+name = "ackivault.deposit"
+
+[[abi.methods]]
+name = "ackivault.pay"
+input_type_id = 3
+
+[[abi.methods]]
+name = "ackivault.revoke"
+
+[[abi.methods]]
+name = "ackivault.withdraw"
+input_type_id = 4
+
+[[abi.errors]]
+status_code = 1000
+name = "invalid_initialization"
+message = "initialization caller or arguments are invalid"
+
+[[abi.errors]]
+status_code = 1001
+name = "unsupported_message"
+message = "message method is not supported"

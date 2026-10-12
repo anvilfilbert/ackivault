@@ -36,10 +36,10 @@
 
 **Interfaces:** The contract exports `init` and `process_message` through `export_message_contract!`. ABI names are `ackivault.deposit`, `ackivault.pay`, `ackivault.revoke`, and `ackivault.withdraw`; the descriptor fixes the state root and argument byte lengths. Method IDs used by the adapter must be derived from the resulting ACAB, not guessed.
 
-- [ ] Write a minimal AVM guest that rejects every message and an ABI descriptor with the four methods and explicit errors.
-- [ ] Run the pinned builder in an amd64 Linux container; record the generated method IDs and inspect the descriptor/ACAB. A failed build is not a passed compatibility check.
-- [ ] Add a build check that compares the contract constants against generated ACAB IDs, then run it to prove the constants match.
-- [ ] Commit only source/config, never downloaded SDK binaries, build outputs, or runner state.
+- [x] Write a minimal AVM guest that rejects every message and an ABI descriptor with the four methods and explicit errors.
+- [x] Run the pinned builder in an amd64 Linux container; record the generated method IDs and inspect the descriptor/ACAB. A failed build is not a passed compatibility check.
+- [x] Add a build check that compares the contract constants against generated ACAB IDs, then run it to prove the constants match.
+- [x] Commit only source/config, never downloaded SDK binaries, build outputs, or runner state.
 
 ### Task 2: Versioned state and initialization
 
@@ -84,4 +84,4 @@
 - [ ] Run the runner to establish the failing end-to-end baseline.
 - [ ] Add only the fixture/runner behavior needed to satisfy those assertions; inspect receipt fields rather than trusting exit status alone.
 - [ ] Run the complete Rust suite, format, Clippy, two reproducible AVM builds, stand journey, and replay. Save a concise evidence summary outside tracked files if it includes local metadata.
-- [ ] Scan tracked files and commit metadata for personal/private data, review the final diff, then push the verified commit(s) to the existing private repository.
+- [ ] Scan tracked files and commit metadata for personal/private data, review the final diff, then push the verified commit(s) to the repository.
