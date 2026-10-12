@@ -18,3 +18,5 @@ avm-contract-build build --manifest-path contract/Cargo.toml
 The [CI workflow](.github/workflows/stand-e2e.yml) also builds the test recipient and runs `scripts/stand-e2e.sh` against the native Linux AVM stand. It checks local deployment, an internal SHELL deposit, recipient delivery, rejected payments, revocation, owner withdrawal, and deterministic replay. The stand profile requires x86-64-v3; a translated amd64 container on an ARM Mac does not establish this integration result.
 
 The contract behavior and security boundaries are defined in the [design spec](docs/superpowers/specs/2026-10-12-ackivault-design.md). The Rust tests check replay nonces and malformed input that the stand CLI cannot directly submit as duplicate signed messages.
+
+For independent reproduction and the receipt checklist, use the [reviewer verification guide](docs/verification.md).

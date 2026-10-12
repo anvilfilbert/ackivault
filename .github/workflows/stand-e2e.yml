@@ -36,6 +36,8 @@ jobs:
           .tools/release/avm-sdk-linux-x86_64/bin/avm-contract-build build --manifest-path tests/stand/receipt/Cargo.toml
           sha256sum contract/target/avm/contract.wasm contract/target/avm/contract.acab contract/target/avm/contract.descriptor > .tools/vault-first.sha256
           sha256sum tests/stand/receipt/target/avm/contract.wasm tests/stand/receipt/target/avm/contract.acab tests/stand/receipt/target/avm/contract.descriptor > .tools/receipt-first.sha256
+          cargo clean --manifest-path contract/Cargo.toml
+          cargo clean --manifest-path tests/stand/receipt/Cargo.toml
           .tools/release/avm-sdk-linux-x86_64/bin/avm-contract-build build --manifest-path contract/Cargo.toml
           .tools/release/avm-sdk-linux-x86_64/bin/avm-contract-build build --manifest-path tests/stand/receipt/Cargo.toml
           sha256sum --check .tools/vault-first.sha256

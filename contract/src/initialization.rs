@@ -9,6 +9,11 @@ pub fn deployment_args(body: &[u8]) -> Result<&[u8], VaultError> {
     if body.len() < DEPLOY_HEADER_BYTES || body.get(..4) != Some(b"ACDP") {
         return Err(VaultError::InvalidArguments);
     }
+    let name_bytes = body
+        .get(264..266)
+        .and_then(|bytes| bytes.try_into().ok())
+        .map(u16::from_le_bytes)
+        .ok_or(VaultError::InvalidArguments)?;
     let salt_bytes = body
         .get(266..268)
         .and_then(|bytes| bytes.try_into().ok())
@@ -23,12 +28,13 @@ pub fn deployment_args(body: &[u8]) -> Result<&[u8], VaultError> {
         return Err(VaultError::InvalidArguments);
     }
     let args_start = DEPLOY_HEADER_BYTES
-        .checked_add(usize::from(salt_bytes))
+        .checked_add(usize::from(name_bytes))
+        .and_then(|start| start.checked_add(usize::from(salt_bytes)))
         .ok_or(VaultError::InvalidArguments)?;
     let args_end = args_start
         .checked_add(INIT_BYTES)
         .ok_or(VaultError::InvalidArguments)?;
-    if args_end >= body.len() {
+    if args_end > body.len() {
         return Err(VaultError::InvalidArguments);
     }
     body.get(args_start..args_end)
