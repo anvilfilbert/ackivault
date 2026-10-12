@@ -71,7 +71,7 @@ PROPTEST_CASES=4096 PROPTEST_RNG_SEED=20261013 \
   cargo test --manifest-path contract/Cargo.toml --locked
 ```
 
-Change the seed for additional exploration; retain a failing seed and minimized input. These are bounded generated tests, not exhaustive verification or coverage-guided fuzzing. The adapter suite separately checks that truncated state emits no effects and that funding an exhausted grant does not restore allowance.
+Change the seed for additional exploration; retain a failing seed and minimized input. Generated failure seeds are saved beside the property tests as `*.proptest-regressions` and included in CI diagnostics when present. The codec also has an independent literal wire vector; roundtrip tests alone cannot detect matching layout mistakes in both encoder and decoder. These are bounded generated tests, not exhaustive verification or coverage-guided fuzzing. The adapter suite separately checks that truncated state emits no effects and that funding an exhausted grant does not restore allowance.
 
 The console suite rejects every truncated prefix and every one-byte extension of six real native receipt frames, mismatched receipt state, unexpected rejection events and unsafe HTTP requests. Use the actual receipts and environment described above; no fabricated successful chain responses substitute for them.
 

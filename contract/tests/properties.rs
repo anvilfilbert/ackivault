@@ -31,9 +31,52 @@ fn vault(reserves: &[u128], cap: u128, expires_at: u32) -> VaultState {
     }
 }
 
+fn nonzero_bytes() -> impl Strategy<Value = [u8; 32]> {
+    (1_u8..=u8::MAX, prop::array::uniform31(any::<u8>())).prop_map(|(first, tail)| {
+        let mut bytes = [0; 32];
+        bytes[0] = first;
+        bytes[1..].copy_from_slice(&tail);
+        bytes
+    })
+}
+
+fn recipients() -> impl Strategy<Value = Vec<Recipient>> {
+    prop::collection::vec(
+        (
+            nonzero_bytes(),
+            prop::array::uniform31(any::<u8>()),
+            1_u64..=u64::MAX,
+            any::<u128>(),
+        ),
+        1..=4,
+    )
+    .prop_map(|entries| {
+        entries
+            .into_iter()
+            .enumerate()
+            .map(|(index, (dapp_id, tail, method_id, reserve_shells))| {
+                let mut account_id = [0; 32];
+                // Distinct prefixes guarantee unique nonzero addresses without filtering.
+                account_id[0] = u8::try_from(index + 1).expect("at most four recipients");
+                account_id[1..].copy_from_slice(&tail);
+                Recipient {
+                    address: AccountAddress {
+                        dapp_id,
+                        account_id,
+                    },
+                    method_id,
+                    reserve_shells,
+                }
+            })
+            .collect()
+    })
+}
+
 fn states() -> impl Strategy<Value = VaultState> {
     (
-        prop::collection::vec(any::<u128>(), 1..=4),
+        recipients(),
+        nonzero_bytes(),
+        nonzero_bytes(),
         1_u128..=u128::MAX,
         any::<u128>(),
         1_u32..=u32::MAX,
@@ -42,20 +85,39 @@ fn states() -> impl Strategy<Value = VaultState> {
         prop::option::of(any::<u64>()),
     )
         .prop_map(
-            |(reserves, cap, spent, expiry, revoked, owner_nonce, agent_nonce)| VaultState {
+            |(
+                recipients,
+                owner_key,
+                agent_key,
+                cap,
+                spent,
+                expiry,
+                revoked,
+                owner_nonce,
+                agent_nonce,
+            )| VaultState {
+                owner_key,
+                agent_key,
+                recipients,
+                cap,
+                expires_at: expiry,
                 spent: spent.min(cap),
                 revoked,
                 owner_nonce_present: owner_nonce.is_some(),
                 owner_nonce: owner_nonce.unwrap_or(0),
                 agent_nonce_present: agent_nonce.is_some(),
                 agent_nonce: agent_nonce.unwrap_or(0),
-                ..vault(&reserves, cap, expiry)
             },
         )
 }
 
 proptest! {
-    // Break caught: dropping, truncating or reordering any grant/nonce/recipient field.
+    #![proptest_config(proptest::test_runner::Config::with_failure_persistence(
+        proptest::test_runner::FileFailurePersistence::WithSource("proptest-regressions")
+    ))]
+
+    // Break caught: field information lost between encoding and decoding.
+    // The separate literal wire vector catches matching layout drift in both halves.
     #[test]
     fn state_codec_preserves_every_security_field(state in states()) {
         let bytes = encode_state(&state).expect("generated valid state");
@@ -150,7 +212,9 @@ proptest! {
         };
         prop_assert_eq!(withdraw(&active, [1; 32], 0, recovery, cap, 99), Err(VaultError::GrantActive));
         let expired = withdraw(&active, [1; 32], 0, recovery, cap, 100).expect("owner recovers at expiry").0;
-        prop_assert_eq!(expired.spent, active.spent);
+        let expected_expired = VaultState { owner_nonce_present: true, owner_nonce: 0, ..active.clone() };
+        prop_assert_eq!(&expired, &expected_expired);
+        prop_assert_eq!(pay(&expired, [2; 32], nonce, 0, 1, u128::MAX, 100), Err(VaultError::GrantExpired));
         let revoked = revoke(&active, [1; 32], 0).expect("owner revokes");
         let recovered = withdraw(&revoked, [1; 32], 1, recovery, cap, 99).expect("owner recovers after revoke").0;
         prop_assert_eq!(recovered.spent, active.spent);
@@ -170,6 +234,46 @@ proptest! {
         let nearly_full = VaultState { spent: u128::MAX - reserve, ..initial };
         prop_assert_eq!(pay(&nearly_full, [2; 32], 0, 0, 1, u128::MAX, 99), Err(VaultError::AmountOverflow));
     }
+}
+
+#[test]
+fn state_codec_matches_an_independent_canonical_wire_vector() {
+    let mut state = vault(&[0x100f0e0d0c0b0a090807060504030201], 1000, 0x04030201);
+    state.spent = 15;
+    state.revoked = true;
+    state.owner_nonce_present = true;
+    state.owner_nonce = 0x0807060504030201;
+    state.agent_nonce_present = true;
+    state.agent_nonce = 0x1817161514131211;
+    state.recipients[0].method_id = 0x2827262524232221;
+    // Literal little-endian version-one layout, independent of codec helpers.
+    let prefix = concat!(
+        "01",
+        "0101010101010101010101010101010101010101010101010101010101010101",
+        "0202020202020202020202020202020202020202020202020202020202020202",
+        "01020304",
+        "e803000000000000",
+        "0000000000000000",
+        "0f00000000000000",
+        "0000000000000000",
+        "0101010203040506070801111213141516171801",
+        "0303030303030303030303030303030303030303030303030303030303030303",
+        "0404040404040404040404040404040404040404040404040404040404040404",
+        "2122232425262728",
+        "0102030405060708090a0b0c0d0e0f10",
+    );
+    let mut expected: Vec<u8> = prefix
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|pair| {
+            u8::from_str_radix(std::str::from_utf8(pair).expect("ASCII vector"), 16)
+                .expect("hex vector")
+        })
+        .collect();
+    assert_eq!(expected.len(), 209);
+    expected.resize(473, 0);
+    assert_eq!(encode_state(&state).expect("valid state"), expected);
+    assert_eq!(decode_state(&expected), Ok(state));
 }
 
 #[test]

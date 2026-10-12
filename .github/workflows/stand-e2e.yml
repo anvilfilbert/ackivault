@@ -81,6 +81,7 @@ jobs:
         with:
           name: stand-diagnostics
           path: |
+            contract/tests/*.proptest-regressions
             .stand/native/*.json
             .stand/console/session-*/*.json
             .stand/console/receipt-loss-*/executed-payment.json
