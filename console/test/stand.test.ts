@@ -4,6 +4,7 @@ import test from "node:test";
 import { LocalStand } from "../src/stand.js";
 import { createLiveServer, listen } from "../src/http.js";
 import { snapshotSchema } from "../src/model.js";
+import { hostStatus } from "./http-request.js";
 
 function required(name: string): string {
   const value: string = process.env[name] ?? "";
@@ -58,7 +59,7 @@ test("native console transfers, enforces its grant and rejects unsafe requests",
     assert.equal(final.delivery.count, "2");
     assert.equal(final.activity.some((entry): boolean => entry.statusCode === 1018), true);
     assert.equal((await action('{"action":"create"}', origin)).status, 409);
-    assert.equal((await fetch(`${origin}/api/snapshot`, { headers: { host: "untrusted.invalid" } })).status, 403);
+    assert.equal(await hostStatus(`${origin}/api/snapshot`, "untrusted.invalid"), 403);
     console.log(JSON.stringify({ event: "native_console_verified", directory: stand.evidenceDirectory }));
   } finally {
     await new Promise<void>((resolve, reject): void => { server.close((error): void => { if (error) reject(error); else resolve(); }); });

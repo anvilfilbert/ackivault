@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { loadEvidence } from "../src/evidence-data.js";
 import { createEvidenceServer, listen } from "../src/http.js";
+import { hostStatus } from "./http-request.js";
 
 test("saved native evidence has recipient delivery but no inferred balance or mutable routes", async (): Promise<void> => {
   const directory: string = process.env.ACKIVAULT_EVIDENCE_DIR ?? "";
@@ -18,6 +19,7 @@ test("saved native evidence has recipient delivery but no inferred balance or mu
   const origin = `http://127.0.0.1:${port}`;
   try {
     assert.equal((await fetch(`${origin}/api/snapshot`)).status, 200);
+    assert.equal(await hostStatus(`${origin}/api/snapshot`, "untrusted.invalid"), 403);
     assert.equal((await fetch(`${origin}/api/action`, { method: "POST", headers: { origin, "content-type": "application/json" }, body: '{"action":"fund"}' })).status, 404);
     assert.equal((await fetch(`${origin}/`)).status, 200);
     assert.equal((await fetch(`${origin}/app.js`)).status, 200);
