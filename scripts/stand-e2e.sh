@@ -14,6 +14,7 @@ stand="${sdk_root}/bin/avm-local-stand"
 profile="${sdk_root}/profiles/wasmtime-release-profile.v1"
 state="${output_dir}/developer.state"
 dapp_id='1111111111111111111111111111111111111111111111111111111111111111'
+dummy_account='5555555555555555555555555555555555555555555555555555555555555555'
 deposit_method='16807661482522038394'
 
 for required_file in "$stand" "$profile" \
@@ -78,13 +79,12 @@ deploy_contract() {
   jq -e '.status == "ok"' "${output_dir}/${result_prefix}-deploy.json" >/dev/null
 }
 
-deploy_contract '7265636569766572' null receiver "$receipt_artifacts_dir"
+receiver_args="$("${output_dir}/stand-args" "$user_key" 1800007200 1000 "${dapp_id}:${dummy_account}" "$deposit_method" 5)"
+deploy_contract '7265636569766572' "$receiver_args" receiver "$receipt_artifacts_dir"
 receiver_address="$(jq -er '.address' "${output_dir}/receiver-funding-required.json")"
 "$stand" inspect --state "$state" --wasmtime-profile "$profile" > "${output_dir}/receiver-inspect.json"
 "$stand" events --state "$state" --wasmtime-profile "$profile" > "${output_dir}/receiver-events.json"
 main_args="$("${output_dir}/stand-args" "$user_key" 1800007200 1000 "$receiver_address" "$deposit_method" 5)"
-deploy_contract '70726f6265' "$main_args" probe "$receipt_artifacts_dir"
-"$stand" events --state "$state" --wasmtime-profile "$profile" > "${output_dir}/probe-events.json"
 deploy_contract '6d61696e' "$main_args" main "$vault_artifacts_dir"
 main_address="$(jq -er '.address' "${output_dir}/main-funding-required.json")"
 
