@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AckiVault · Local laboratory</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <main>
+    <header class="masthead">
+      <a class="wordmark" href="/" aria-label="AckiVault home"><span class="mark" aria-hidden="true">AV</span>AckiVault</a>
+      <span class="environment">LOCAL LABORATORY <span class="dot"></span> NO REAL FUNDS</span>
+    </header>
+    <section class="intro">
+      <div><p class="eyebrow">BOUNDED AUTHORITY / RUST AVM</p><h1>Trust the agent.<br><em>Bound the spend.</em></h1></div>
+      <p class="intro-note">One owner. One agent. A fixed allowance.<br>Watch the contract enforce the boundary.</p>
+    </section>
+    <section class="source-banner" aria-label="Evidence source">
+      <span class="source-icon" aria-hidden="true">↳</span>
+      <div><strong data-testid="source-label">Loading source…</strong><p data-testid="source-detail">Checking the local console.</p></div>
+      <a data-testid="run-link" hidden target="_blank" rel="noopener noreferrer">View CI proof ↗</a>
+    </section>
+    <div class="notice" data-testid="error" role="alert" hidden></div>
+    <div class="workspace">
+      <section class="vault-panel" aria-labelledby="vault-heading">
+        <div class="section-head"><h2 id="vault-heading">The vault</h2><span class="status" data-testid="grant-status">Not created</span></div>
+        <div class="balance"><p class="eyebrow">RUNTIME-VISIBLE BALANCE / TEST UNITS</p><p class="big-number" data-testid="balance">—</p><p class="caption" data-testid="balance-detail">No balance sample yet.</p></div>
+        <div class="allowance-head"><span>Agent allowance</span><span><strong data-testid="spent">—</strong> / <span data-testid="cap">—</span></span></div>
+        <progress data-testid="allowance" aria-label="Agent allowance used" max="1000" value="0"></progress>
+        <div class="metrics"><div><span class="eyebrow">REMAINING</span><strong data-testid="remaining">—</strong></div><div><span class="eyebrow">EXPIRES / STAND TIME</span><strong class="small" data-testid="expiry">—</strong></div></div>
+        <p class="fine-print">Allowance includes each payment + the fixed 5-unit outbound reserve. Other protocol fees are separate. Inspection samples the execution balance; later fees may apply.</p>
+        <dl class="identities"><dt>Vault</dt><dd data-testid="vault-address">Not created</dd><dt>Owner key</dt><dd data-testid="owner-key">—</dd><dt>Agent key</dt><dd data-testid="agent-key">—</dd></dl>
+      </section>
+      <section class="controls-panel" aria-labelledby="controls-heading">
+        <div class="section-head"><h2 id="controls-heading">Control room</h2><span class="eyebrow">LOCAL ONLY</span></div>
+        <p data-testid="controls-note" class="caption">Waiting for the source.</p>
+        <button data-action="create" data-testid="create">Create test grant <span>↗</span></button>
+        <button data-action="fund" data-testid="fund">Fund +100 test units <span>+</span></button>
+        <form data-testid="pay-form"><label for="pay-amount">Agent payment</label><div class="input-row"><input id="pay-amount" data-testid="pay-amount" inputmode="numeric" pattern="[1-9][0-9]*" value="10" required aria-describedby="payment-help"><button type="submit" data-action="pay" data-testid="pay">Pay ↗</button></div><p id="payment-help" class="caption">Only the approved recipient. Amount + 5 counts against the cap.</p></form>
+        <div class="control-pair"><button data-action="inspect" data-testid="inspect">Sample balance</button><button class="danger" data-action="revoke" data-testid="revoke">Revoke grant</button></div>
+        <form data-testid="withdraw-form"><label for="withdraw-amount">Owner recovery</label><div class="input-row"><input id="withdraw-amount" data-testid="withdraw-amount" inputmode="numeric" pattern="[1-9][0-9]*" value="7" required><button type="submit" data-action="withdraw" data-testid="withdraw">Withdraw ↗</button></div><p class="caption">After revocation or expiry. This demo sends recovery funds to the test recipient.</p></form>
+        <p class="fine-print">A fresh stand grants each deployment 100,000 test units for gas and execution. Fund transfers an additional 100 from the fixture. No wallet import, RPC connection or network transaction.</p>
+        <p class="action-result" data-testid="action-result" role="status" aria-live="polite">Ready to inspect.</p>
+      </section>
+    </div>
+    <section class="recipient-panel" aria-labelledby="recipient-heading">
+      <div class="section-head"><h2 id="recipient-heading">Approved recipients</h2><span class="eyebrow">IMMUTABLE AT DEPLOYMENT</span></div>
+      <div data-testid="recipients" class="recipients"></div>
+      <div class="delivery"><span class="dot"></span><span>Recipient state confirms <strong data-testid="received">0</strong> test units across <strong data-testid="receipt-count">0</strong> transfers.</span><span class="caption">Delivery, not just dispatch.</span></div>
+    </section>
+    <section class="ledger-panel" aria-labelledby="ledger-heading">
+      <div class="section-head"><div><h2 id="ledger-heading">Execution ledger</h2><p class="caption">Accepted and rejected calls, with their actual executor status.</p></div><button class="quiet" data-testid="refresh">Refresh cached view ↻</button></div>
+      <div class="table-scroll"><table><thead><tr><th>Action / authority</th><th>Amount</th><th>Result</th><th>Fee / test units</th><th>Receipt</th></tr></thead><tbody data-testid="activity"></tbody></table></div>
+    </section>
+    <footer><span>ACKIVAULT / EXPERIMENTAL SDK DEMONSTRATION</span><span>Local verification is not a security audit.</span></footer>
+  </main>
+</body>
+</html>

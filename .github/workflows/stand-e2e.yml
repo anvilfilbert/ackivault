@@ -12,6 +12,9 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.93.0 --profile minimal --component clippy --component rustfmt --target wasm32-unknown-unknown
       - name: Fetch pinned AVM SDK release
@@ -51,10 +54,25 @@ jobs:
             contract/target/avm \
             tests/stand/receipt/target/avm \
             .stand/native
+      - name: Verify console on native stand and recorded evidence
+        working-directory: console
+        env:
+          ACKIVAULT_EVIDENCE_DIR: ../.stand/native
+          ACKIVAULT_SDK_ROOT: ../.tools/release/avm-sdk-linux-x86_64
+          ACKIVAULT_VAULT_ARTIFACTS: ../contract/target/avm
+          ACKIVAULT_RECEIPT_ARTIFACTS: ../tests/stand/receipt/target/avm
+          ACKIVAULT_CONSOLE_STATE: ../.stand/console
+        run: |
+          npm ci
+          npm run build
+          npm test
+          npm run test:native
       - name: Upload stand diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: stand-diagnostics
-          path: .stand/native/*.json
+          path: |
+            .stand/native/*.json
+            .stand/console/session-*/*.json
           if-no-files-found: ignore

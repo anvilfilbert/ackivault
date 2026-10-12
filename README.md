@@ -20,3 +20,5 @@ The [CI workflow](.github/workflows/stand-e2e.yml) also builds the test recipien
 The contract behavior and security boundaries are defined in the [design spec](docs/superpowers/specs/2026-10-12-ackivault-design.md). The Rust tests check replay nonces and malformed input that the stand CLI cannot directly submit as duplicate signed messages.
 
 For independent reproduction and the receipt checklist, use the [reviewer verification guide](docs/verification.md).
+
+The [local web console](console/README.md) shows allowance, expiry, fixed recipients and actual execution receipts. Its native-stand controls create, fund, pay, revoke and withdraw using test funds only. A separate read-only evidence viewer runs on an ARM Mac. Neither entrypoint connects to Shellnet or Mainnet.

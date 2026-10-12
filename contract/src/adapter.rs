@@ -5,11 +5,11 @@ use avm_contract_sdk::{
 };
 
 use crate::abi::{
-    DEPOSIT_ACCEPTED_EVENT_CLASS, DEPOSIT_METHOD_ID, GRANT_REVOKED_EVENT_CLASS,
+    DEPOSIT_ACCEPTED_EVENT_CLASS, DEPOSIT_METHOD_ID, GRANT_REVOKED_EVENT_CLASS, INSPECT_METHOD_ID,
     OWNER_WITHDRAWAL_DISPATCHED_EVENT_CLASS, PAYMENT_DISPATCHED_EVENT_CLASS, PAY_METHOD_ID,
-    REVOKE_METHOD_ID, WITHDRAW_METHOD_ID,
+    REVOKE_METHOD_ID, STATUS_EVENT_CLASS, WITHDRAW_METHOD_ID,
 };
-use crate::grant::{pay, revoke, withdraw, Payment};
+use crate::grant::{inspect, pay, revoke, withdraw, Payment};
 use crate::initialization::{deployment_args, initialize as initialize_state};
 use crate::state::{decode_state, encode_state, VaultError};
 
@@ -58,6 +58,7 @@ fn process_message_result(input: MessageInput<'_>) -> Result<MessageOutput, Vaul
         DEPOSIT_METHOD_ID => accept_deposit(input),
         PAY_METHOD_ID => dispatch_payment(input, &state),
         REVOKE_METHOD_ID => revoke_grant(input, &state),
+        INSPECT_METHOD_ID => inspect_grant(input, &state),
         WITHDRAW_METHOD_ID => dispatch_withdrawal(input, &state),
         _ => Err(VaultError::UnsupportedMessage),
     }
@@ -159,6 +160,27 @@ fn revoke_grant(
         &[EventField {
             name: "nonce".into(),
             value: EventValue::U64(message.nonce),
+        }],
+    )?];
+    Ok(output)
+}
+
+fn inspect_grant(
+    input: MessageInput<'_>,
+    state: &crate::state::VaultState,
+) -> Result<MessageOutput, VaultError> {
+    let message = signed_external(input)?;
+    if !message.body.is_empty() {
+        return Err(VaultError::InvalidArguments);
+    }
+    let next = inspect(state, message.pubkey, message.nonce)?;
+    let mut output = MessageOutput::success(StateUpdate::FullReplace(encode_state(&next)?));
+    output.event_intents = vec![event(
+        STATUS_EVENT_CLASS,
+        "ackivault.status",
+        &[EventField {
+            name: "balance_shells".into(),
+            value: EventValue::U128(shell_balance(input)),
         }],
     )?];
     Ok(output)

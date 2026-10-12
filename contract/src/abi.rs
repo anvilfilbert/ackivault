@@ -1,8 +1,10 @@
 pub const DEPOSIT_METHOD_ID: u64 = 0xe940_cf11_4abd_d07a;
 pub const PAY_METHOD_ID: u64 = 0xa63b_2763_69fc_bcee;
 pub const REVOKE_METHOD_ID: u64 = 0xebea_aa63_a6a2_8201;
+pub const INSPECT_METHOD_ID: u64 = 0xa228_6cd9_2c4d_5aac;
 pub const WITHDRAW_METHOD_ID: u64 = 0x5521_8730_4195_a296;
 pub const DEPOSIT_ACCEPTED_EVENT_CLASS: u64 = 0x2aeb_cda6_a8e8_ac6f;
 pub const PAYMENT_DISPATCHED_EVENT_CLASS: u64 = 0x571b_f2b8_2710_84c3;
 pub const GRANT_REVOKED_EVENT_CLASS: u64 = 0x2de1_0432_4480_10a1;
+pub const STATUS_EVENT_CLASS: u64 = 0xd8b9_dbed_dc52_09b2;
 pub const OWNER_WITHDRAWAL_DISPATCHED_EVENT_CLASS: u64 = 0xa34a_c8f4_8c51_bf61;

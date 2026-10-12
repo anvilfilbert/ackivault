@@ -66,20 +66,25 @@ pub fn pay(
     ))
 }
 
-pub fn revoke(state: &VaultState, caller: [u8; 32], nonce: u64) -> Result<VaultState, VaultError> {
+pub fn inspect(state: &VaultState, caller: [u8; 32], nonce: u64) -> Result<VaultState, VaultError> {
     if caller != state.owner_key {
         return Err(VaultError::UnauthorizedOwner);
     }
     if state.owner_nonce_present && nonce <= state.owner_nonce {
         return Err(VaultError::InvalidOwnerNonce);
     }
+    let mut next = state.clone();
+    next.owner_nonce_present = true;
+    next.owner_nonce = nonce;
+    Ok(next)
+}
+
+pub fn revoke(state: &VaultState, caller: [u8; 32], nonce: u64) -> Result<VaultState, VaultError> {
+    let mut next = inspect(state, caller, nonce)?;
     if state.revoked {
         return Err(VaultError::AlreadyRevoked);
     }
-    let mut next = state.clone();
     next.revoked = true;
-    next.owner_nonce_present = true;
-    next.owner_nonce = nonce;
     Ok(next)
 }
 
@@ -91,12 +96,7 @@ pub fn withdraw(
     balance_shells: u128,
     block_time: u32,
 ) -> Result<(VaultState, Payment), VaultError> {
-    if caller != state.owner_key {
-        return Err(VaultError::UnauthorizedOwner);
-    }
-    if state.owner_nonce_present && nonce <= state.owner_nonce {
-        return Err(VaultError::InvalidOwnerNonce);
-    }
+    let next = inspect(state, caller, nonce)?;
     if !state.revoked && block_time < state.expires_at {
         return Err(VaultError::GrantActive);
     }
@@ -116,8 +116,5 @@ pub fn withdraw(
     if balance_shells < total {
         return Err(VaultError::InsufficientShellBalance);
     }
-    let mut next = state.clone();
-    next.owner_nonce_present = true;
-    next.owner_nonce = nonce;
     Ok((next, payment))
 }

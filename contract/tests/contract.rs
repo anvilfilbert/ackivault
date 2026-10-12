@@ -197,6 +197,74 @@ fn assert_effect_free(output: MessageOutput) {
 }
 
 #[test]
+fn owner_inspection_reports_balance_and_only_advances_owner_nonce() {
+    let original = vault_state();
+    let output = process(&external_input(
+        [1; 32],
+        7,
+        0xa228_6cd9_2c4d_5aac,
+        &[],
+        &original,
+        99,
+        1234,
+        0,
+        0,
+    ));
+    assert_eq!(output.status_code, 0);
+    let Some(StateUpdate::FullReplace(bytes)) = output.state_update else {
+        panic!("inspection must persist the owner nonce");
+    };
+    let mut expected = decode_state(&original).expect("valid original state");
+    expected.owner_nonce_present = true;
+    expected.owner_nonce = 7;
+    assert_eq!(
+        decode_state(&bytes).expect("valid inspected state"),
+        expected
+    );
+    assert!(output.outbound_intents.is_empty());
+    assert_eq!(output.event_intents.len(), 1);
+    assert_eq!(output.event_intents[0].event_class, 0xd8b9_dbed_dc52_09b2);
+    assert_eq!(output.event_intents[0].event_name, "ackivault.status");
+    let mut fields = vec![1, 0, 0, 0, 14, 0, 4, 16, 0];
+    fields.extend_from_slice(b"balance_shells");
+    fields.extend_from_slice(&1234_u128.to_le_bytes());
+    assert_eq!(output.event_intents[0].fields_binary, fields);
+
+    for (key, nonce, body, status) in [
+        ([2; 32], 8, &[][..], 1013),
+        ([1; 32], 7, &[][..], 1015),
+        ([1; 32], 6, &[][..], 1015),
+        ([1; 32], 8, &[1][..], 1000),
+    ] {
+        let rejected = process(&external_input(
+            key,
+            nonce,
+            0xa228_6cd9_2c4d_5aac,
+            body,
+            &bytes,
+            99,
+            1234,
+            0,
+            0,
+        ));
+        assert_eq!(rejected.status_code, status);
+        assert_effect_free(rejected);
+    }
+    let revoked = process(&external_input(
+        [1; 32],
+        8,
+        REVOKE_METHOD_ID,
+        &[],
+        &bytes,
+        99,
+        1234,
+        0,
+        0,
+    ));
+    assert_eq!(revoked.status_code, 0);
+}
+
+#[test]
 fn signed_external_initialization_sets_owner_and_grant() {
     let frame = deployment_input([1; 32], &deployment_body(b"", b"main", &init_args()), 10);
     let input = decode_message_input(&frame).expect("canonical signed deployment");

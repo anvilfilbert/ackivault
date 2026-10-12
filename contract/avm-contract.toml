@@ -55,6 +55,9 @@ input_type_id = 3
 name = "ackivault.revoke"
 
 [[abi.methods]]
+name = "ackivault.inspect"
+
+[[abi.methods]]
 name = "ackivault.withdraw"
 input_type_id = 4
 
@@ -91,6 +94,14 @@ name = "ackivault.grant_revoked"
 id = 1
 type_id = 7
 name = "nonce"
+
+[[abi.events]]
+name = "ackivault.status"
+
+[[abi.events.fields]]
+id = 1
+type_id = 5
+name = "balance_shells"
 
 [[abi.events]]
 name = "ackivault.owner_withdrawal_dispatched"

@@ -85,6 +85,7 @@ fn verify(artifact: &[u8]) -> Result<(), String> {
         ("ackivault.deposit", abi::DEPOSIT_METHOD_ID),
         ("ackivault.pay", abi::PAY_METHOD_ID),
         ("ackivault.revoke", abi::REVOKE_METHOD_ID),
+        ("ackivault.inspect", abi::INSPECT_METHOD_ID),
         ("ackivault.withdraw", abi::WITHDRAW_METHOD_ID),
     ] {
         let actual = method_id(artifact, name)?;
@@ -98,6 +99,7 @@ fn verify(artifact: &[u8]) -> Result<(), String> {
         ("ackivault.deposit_accepted", abi::DEPOSIT_ACCEPTED_EVENT_CLASS),
         ("ackivault.payment_dispatched", abi::PAYMENT_DISPATCHED_EVENT_CLASS),
         ("ackivault.grant_revoked", abi::GRANT_REVOKED_EVENT_CLASS),
+        ("ackivault.status", abi::STATUS_EVENT_CLASS),
         ("ackivault.owner_withdrawal_dispatched", abi::OWNER_WITHDRAWAL_DISPATCHED_EVENT_CLASS),
     ] {
         let actual = event_class(artifact, name)?;
