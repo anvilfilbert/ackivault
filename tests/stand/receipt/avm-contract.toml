@@ -15,7 +15,7 @@ len = 160
 id = 2
 kind = "fixed_bytes"
 name = "deploy_body_tail"
-len = 512
+len = 256
 
 [[abi.methods]]
 name = "ackivault.deposit"
@@ -27,8 +27,3 @@ name = "stand.init_probe"
 id = 1
 type_id = 2
 name = "body_tail"
-
-[[abi.events.fields]]
-id = 2
-type_id = 1
-name = "snapshot"

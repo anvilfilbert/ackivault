@@ -56,20 +56,14 @@ impl Contract for Receipt {
             }
         }
         let body = input.message.body();
-        let mut body_tail = vec![0_u8; 512];
+        let mut body_tail = vec![0_u8; 256];
         let tail_start = body.len().saturating_sub(body_tail.len());
         let tail = &body[tail_start..];
         body_tail[..tail.len()].copy_from_slice(tail);
-        let Ok(fields_binary) = encode_event_fields(&[
-            EventField {
-                name: "body_tail".into(),
-                value: EventValue::Data(body_tail),
-            },
-            EventField {
-                name: "snapshot".into(),
-                value: EventValue::Data(state.clone()),
-            },
-        ]) else {
+        let Ok(fields_binary) = encode_event_fields(&[EventField {
+            name: "body_tail".into(),
+            value: EventValue::Data(body_tail),
+        }]) else {
             return MessageOutput::failure(1005);
         };
         let mut output = MessageOutput::success(StateUpdate::FullReplace(state));
