@@ -3,6 +3,8 @@
 use avm_contract_sdk::{Contract, MessageInput, MessageOutput};
 
 pub mod abi;
+pub mod initialization;
+pub mod state;
 
 struct AckiVault;
 

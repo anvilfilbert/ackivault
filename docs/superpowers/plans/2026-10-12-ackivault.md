@@ -43,14 +43,14 @@
 
 ### Task 2: Versioned state and initialization
 
-**Files:** Create `contract/src/state.rs`, `contract/src/init.rs`, `contract/tests/initialization.rs`; modify `contract/src/lib.rs` and the ABI descriptor.
+**Files:** Create `contract/src/state.rs`, `contract/src/initialization.rs`, `contract/tests/initialization.rs`; modify `contract/src/lib.rs` and the ABI descriptor.
 
-**Interfaces:** `VaultState { owner_key, agent_key, expires_at, cap, spent, revoked, owner_nonce, agent_nonce, recipients }`; `Recipient { address, method_id, reserve_shells }`; `decode_state(bytes: &[u8]) -> Result<VaultState, VaultError>`; `encode_state(state: &VaultState) -> Vec<u8>`; `initialize(owner_key: [u8; 32], args: &[u8], block_time: u32) -> Result<VaultState, VaultError>`.
+**Interfaces:** `VaultState { owner_key, agent_key, expires_at, cap, spent, revoked, owner_nonce, agent_nonce, recipients }`; `Recipient { address, method_id, reserve_shells }`; `decode_state(bytes: &[u8]) -> Result<VaultState, VaultError>`; `encode_state(state: &VaultState) -> Result<Vec<u8>, VaultError>`; `initialize(owner_key: [u8; 32], args: &[u8], block_time: u32) -> Result<VaultState, VaultError>`.
 
-- [ ] Write failing tests for valid initialization and state round trip; zero keys, past/current expiry, zero cap, zero or five recipients, duplicate addresses, zero destination or method, malformed/truncated/noncanonical state and arguments.
-- [ ] Run `cargo test --manifest-path contract/Cargo.toml` and confirm the new tests fail for missing behavior.
-- [ ] Implement a fixed-version codec and pure initialization validation; allow unrelated ABI metadata only where the SDK does.
-- [ ] Rerun tests and commit the independently checked initialization/codec slice.
+- [x] Write failing tests for valid initialization and state round trip; zero keys, past/current expiry, zero cap, zero or five recipients, duplicate addresses, zero destination or method, malformed/truncated/noncanonical state and arguments.
+- [x] Run `cargo test --manifest-path contract/Cargo.toml` and confirm the new tests fail for missing behavior.
+- [x] Implement a fixed-version codec and pure initialization validation; allow unrelated ABI metadata only where the SDK does.
+- [x] Rerun tests and commit the independently checked initialization/codec slice.
 
 ### Task 3: Pure grant transitions
 
