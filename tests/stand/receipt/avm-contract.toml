@@ -13,37 +13,35 @@ len = 24
 
 [[abi.types]]
 id = 2
-kind = "u64"
-name = "diagnostic_offset"
+kind = "address"
+name = "forward_destination"
 
 [[abi.types]]
 id = 3
-kind = "fixed_bytes"
-name = "deploy_argument_window"
-len = 192
+kind = "u128"
+name = "received_shells"
+
+[[abi.types]]
+id = 4
+kind = "u64"
+name = "receipt_count"
 
 [[abi.methods]]
 name = "ackivault.deposit"
 
+[[abi.methods]]
+name = "stand.forward_deposit"
+input_type_id = 2
+
 [[abi.events]]
-name = "stand.init_probe"
+name = "stand.deposit_received"
 
 [[abi.events.fields]]
 id = 1
-type_id = 2
-name = "ascii_offset"
+type_id = 4
+name = "receipt_count"
 
 [[abi.events.fields]]
 id = 2
-type_id = 2
-name = "body_len"
-
-[[abi.events.fields]]
-id = 3
-type_id = 2
-name = "raw_offset"
-
-[[abi.events.fields]]
-id = 4
 type_id = 3
-name = "window"
+name = "received_shells"

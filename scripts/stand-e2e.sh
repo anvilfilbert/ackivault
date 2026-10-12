@@ -88,6 +88,14 @@ main_args="$("${output_dir}/stand-args" "$user_key" 1800007200 1000 "$receiver_a
 deploy_contract '6d61696e' "$main_args" main "$vault_artifacts_dir"
 main_address="$(jq -er '.address' "${output_dir}/main-funding-required.json")"
 
+forward_args="\"${main_address}\""
+"$stand" call --state "$state" --wasmtime-profile "$profile" \
+  --address "$receiver_address" --method stand.forward_deposit --args-json "$forward_args" \
+  --identity user --value-main 0 --extra-currencies '' \
+  --block-time 1800000005 --created-at 1800000004 --expire-at 1800003604 \
+  --fuel-fee-shells 1000 > "${output_dir}/deposit.json"
+jq -e '.status == "ok"' "${output_dir}/deposit.json" >/dev/null
+
 pay_args='"0x000a000000000000000000000000000000"'
 "$stand" call --state "$state" --wasmtime-profile "$profile" \
   --address "$main_address" --method ackivault.pay --args-json "$pay_args" \
@@ -99,18 +107,15 @@ jq -e '.status == "ok" and .method == "ackivault.pay" and
   (.events | length) == 1' "${output_dir}/pay.json" >/dev/null
 
 over_cap_args='"0x00da030000000000000000000000000000"'
-set +e
 "$stand" call --state "$state" --wasmtime-profile "$profile" \
   --address "$main_address" --method ackivault.pay --args-json "$over_cap_args" \
   --identity user --value-main 0 --extra-currencies '' \
   --block-time 1800000020 --created-at 1800000019 --expire-at 1800003619 \
   --fuel-fee-shells 1000 > "${output_dir}/over-cap.json"
-over_cap_status="$?"
-set -e
-if [[ "$over_cap_status" -eq 0 ]]; then
-  echo 'over-cap payment unexpectedly succeeded' >&2
-  exit 1
-fi
+jq -e --slurpfile pay "${output_dir}/pay.json" \
+  '.status == "ok" and .raw_executor_output[8:16] == "00040000" and
+  .raw_state == $pay[0].raw_state and (.events | length) == 0' \
+  "${output_dir}/over-cap.json" >/dev/null
 
 "$stand" inspect --state "$state" --wasmtime-profile "$profile" > "${output_dir}/inspect.json"
 jq -e --arg receiver "$receiver_address" --arg main "$main_address" \
