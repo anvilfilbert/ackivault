@@ -3,6 +3,7 @@
 use avm_contract_sdk::{Contract, MessageInput, MessageOutput};
 
 pub mod abi;
+pub mod grant;
 pub mod initialization;
 pub mod state;
 

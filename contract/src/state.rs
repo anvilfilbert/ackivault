@@ -35,6 +35,20 @@ pub enum VaultError {
     InvalidStateLength,
     UnsupportedStateVersion,
     InvalidStateEncoding,
+    UnauthorizedAgent,
+    UnauthorizedOwner,
+    InvalidAgentNonce,
+    InvalidOwnerNonce,
+    RecipientNotAllowed,
+    GrantExpired,
+    GrantRevoked,
+    GrantActive,
+    AlreadyRevoked,
+    InvalidAmount,
+    InvalidDestination,
+    AmountOverflow,
+    CapExceeded,
+    InsufficientShellBalance,
 }
 
 pub const RECIPIENT_BYTES: usize = 88;

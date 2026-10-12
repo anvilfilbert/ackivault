@@ -56,12 +56,12 @@
 
 **Files:** Create `contract/src/grant.rs`, `contract/tests/grant.rs`.
 
-**Interfaces:** `pay(state: &VaultState, caller: [u8; 32], nonce: u64, index: u8, amount: u128, balance_shells: u128, block_time: u32) -> Result<(VaultState, Payment), VaultError>`; `revoke(state: &VaultState, caller: [u8; 32], nonce: u64) -> Result<VaultState, VaultError>`; `withdraw(state: &VaultState, caller: [u8; 32], nonce: u64, destination: AccountAddress, method_id: u64, reserve_shells: u128, amount: u128, balance_shells: u128, block_time: u32) -> Result<(VaultState, Payment), VaultError>`.
+**Interfaces:** `pay(state: &VaultState, caller: [u8; 32], nonce: u64, index: u8, amount: u128, balance_shells: u128, block_time: u32) -> Result<(VaultState, Payment), VaultError>`; `revoke(state: &VaultState, caller: [u8; 32], nonce: u64) -> Result<VaultState, VaultError>`; `withdraw(state: &VaultState, caller: [u8; 32], nonce: u64, payment: Payment, balance_shells: u128, block_time: u32) -> Result<(VaultState, Payment), VaultError>`.
 
-- [ ] Write failing tests for authorized pay, exact cap, cap+1, overflow, wrong role, replay, invalid index, expiry edge, revoke/repeat revoke, pre/post-expiry withdrawal, nonzero destination, and exact/short balance.
-- [ ] Run the tests and confirm behavioral failures.
-- [ ] Implement pure, checked transitions with immutable returned state and an explicit `Payment` intent; no state mutation or output side effects on error.
-- [ ] Rerun tests and commit this slice.
+- [x] Write failing tests for authorized pay, exact cap, cap+1, overflow, wrong role, replay, invalid index, expiry edge, revoke/repeat revoke, pre/post-expiry withdrawal, nonzero destination, and exact/short balance.
+- [x] Run the tests and confirm behavioral failures.
+- [x] Implement pure, checked transitions with immutable returned state and an explicit `Payment` intent; no state mutation or output side effects on error.
+- [x] Rerun tests and commit this slice.
 
 ### Task 4: Canonical AVM adapter and events
 
