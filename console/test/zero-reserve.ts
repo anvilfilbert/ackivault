@@ -2,8 +2,8 @@ import { mkdir, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 /** Pass the first real payment unchanged; give the second real payment zero FUEL reserve. */
-export async function exhaustedFuelSdk(sdkRoot: string, directory: string): Promise<string> {
-  const proxyRoot = path.join(directory, "fuel-sdk");
+export async function zeroReserveSdk(sdkRoot: string, directory: string): Promise<string> {
+  const proxyRoot = path.join(directory, "zero-reserve-sdk");
   await mkdir(path.join(proxyRoot, "bin"), { recursive: true });
   await symlink(path.join(sdkRoot, "profiles"), path.join(proxyRoot, "profiles"));
   const firstPayment = path.join(directory, "first-payment.json");
@@ -22,7 +22,7 @@ const result = spawnSync(${JSON.stringify(path.join(sdkRoot, "bin/avm-local-stan
 if (result.error) throw result.error;
 if (result.status === null) throw new Error("Native stand terminated without exit status: " + result.signal);
 if (payment) {
-  const receipt = exhausted ? ${JSON.stringify(path.join(directory, "exhausted-payment.json"))} : ${JSON.stringify(firstPayment)};
+  const receipt = exhausted ? ${JSON.stringify(path.join(directory, "rejected-payment.json"))} : ${JSON.stringify(firstPayment)};
   writeFileSync(receipt, result.stdout, { flag: "wx", mode: 0o600 });
 }
 process.stderr.write(result.stderr);

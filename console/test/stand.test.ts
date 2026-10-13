@@ -8,7 +8,7 @@ import { RequestError, snapshotSchema } from "../src/model.js";
 import { decodeCall, decodeRecipient, decodeVault, verifyFunding } from "../src/receipts.js";
 import { hostStatus } from "./http-request.js";
 import { nativeCommand, nativeRecipientSnapshot, receiptLossSdk } from "./receipt-loss.js";
-import { exhaustedFuelSdk } from "./fuel-exhaustion.js";
+import { zeroReserveSdk } from "./zero-reserve.js";
 
 function required(name: string): string {
   const value: string = process.env[name] ?? "";
@@ -20,9 +20,9 @@ test("a zero-budget native payment cannot alter a previously spent grant or sile
   const sdkRoot = required("ACKIVAULT_SDK_ROOT");
   const stateParent = required("ACKIVAULT_CONSOLE_STATE");
   await mkdir(stateParent, { recursive: true });
-  const faults = await mkdtemp(path.join(stateParent, "fuel-exhaustion-"));
+  const faults = await mkdtemp(path.join(stateParent, "zero-reserve-"));
   const stand = new LocalStand({
-    sdkRoot: await exhaustedFuelSdk(sdkRoot, faults),
+    sdkRoot: await zeroReserveSdk(sdkRoot, faults),
     vaultArtifacts: required("ACKIVAULT_VAULT_ARTIFACTS"),
     receiptArtifacts: required("ACKIVAULT_RECEIPT_ARTIFACTS"),
     stateParent,
@@ -33,7 +33,7 @@ test("a zero-budget native payment cannot alter a previously spent grant or sile
   const paid = await stand.execute({ action: "pay", amount: "10" });
   assert.equal(paid.vault!.spent, "15");
   assert.deepEqual(paid.delivery, { received: "10", count: "1" });
-  await assert.rejects(stand.execute({ action: "pay", amount: "10" }), /fuel/i);
+  await assert.rejects(stand.execute({ action: "pay", amount: "10" }), /RouteRequiresFee/);
   assert.deepEqual(stand.snapshot().availableActions, []);
   assert.notEqual(stand.snapshot().failure, null);
   const stateFile = path.join(stand.evidenceDirectory, "developer.state");
