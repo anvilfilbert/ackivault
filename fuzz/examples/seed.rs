@@ -29,6 +29,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     save(root, "state_init", "state", &state)?;
     save(root, "state_init", "init", &args)?;
     save(root, "state_init", "deployment", &deployment)?;
+    let mut all_recipients = args;
+    all_recipients[52] = 4;
+    for (index, reserve) in [0_u128, 1, 256, u128::MAX].into_iter().enumerate() {
+        let start = 53 + index * 88;
+        all_recipients[start..start + 32].fill(3 + u8::try_from(index)?);
+        all_recipients[start + 32..start + 64].fill(9 + u8::try_from(index)?);
+        all_recipients[start + 64..start + 72]
+            .copy_from_slice(&(7 + u64::try_from(index)?).to_le_bytes());
+        all_recipients[start + 72..start + 88].copy_from_slice(&reserve.to_le_bytes());
+    }
+    save(root, "state_init", "init-all-recipients", &all_recipients)?;
+    save(
+        root,
+        "state_init",
+        "deployment-all-recipients",
+        &deployment_body(b"ackivault", b"four", &all_recipients),
+    )?;
     save(
         root,
         "canonical_message",
