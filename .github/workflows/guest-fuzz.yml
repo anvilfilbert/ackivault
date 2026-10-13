@@ -1,0 +1,56 @@
+name: AckiVault guest fuzzing
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  guest-fuzz:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CARGO_BUILD_JOBS: '2'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install isolated pinned fuzz tooling
+        run: |
+          rustup toolchain install nightly-2026-01-30 --profile minimal --component llvm-tools-preview --component rustfmt
+          cargo +nightly-2026-01-30 install cargo-fuzz --version 0.13.2 --locked --root .tools/fuzz
+          cargo +nightly-2026-01-30 fetch --manifest-path fuzz/Cargo.toml --locked
+      - name: Seed, fuzz and measure coverage
+        env:
+          CARGO_NET_OFFLINE: 'true'
+        run: |
+          export PATH="$PWD/.tools/fuzz/bin:$PATH"
+          cargo +nightly-2026-01-30 fmt --manifest-path fuzz/Cargo.toml --check
+          cargo +nightly-2026-01-30 run --manifest-path fuzz/Cargo.toml --locked --example seed -- fuzz/corpus
+          mkdir -p fuzz/coverage
+          cd contract
+          llvm="$(rustc +nightly-2026-01-30 --print sysroot)/lib/rustlib/x86_64-unknown-linux-gnu/bin/llvm-cov"
+          for target in state_init canonical_message; do
+            cargo +nightly-2026-01-30 fuzz run --fuzz-dir ../fuzz "$target" -- \
+              -max_total_time=60 -max_len=4096 -timeout=10 -rss_limit_mb=2048 \
+              -seed=20261013 -print_final_stats=1 2>&1 | tee "../fuzz/coverage/${target}-run.log"
+            cargo +nightly-2026-01-30 fuzz coverage --fuzz-dir ../fuzz "$target"
+            "$llvm" report "target/x86_64-unknown-linux-gnu/coverage/x86_64-unknown-linux-gnu/release/$target" \
+              --instr-profile="../fuzz/coverage/$target/coverage.profdata" \
+              --ignore-filename-regex='(/rustc/|/\.cargo/|/fuzz/)' | tee "../fuzz/coverage/${target}-summary.txt"
+          done
+          git diff --exit-code -- ../fuzz/Cargo.lock
+      - name: Retain synthetic corpus, failures and coverage
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: guest-fuzz-diagnostics
+          path: |
+            fuzz/corpus/
+            fuzz/artifacts/
+            fuzz/coverage/
+          if-no-files-found: warn

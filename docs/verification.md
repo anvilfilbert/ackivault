@@ -77,11 +77,38 @@ The console suite rejects every truncated prefix and every one-byte extension of
 
 The native console suite also injects receipt loss **after the real stand executes a payment**. A test-only process wrapper preserves the complete response, then truncates stdout. The test requires the console to halt, a retry to leave the stand state file unchanged, and an independent call through the original binary to observe exactly one recipient payment. The `receipt-loss-*` evidence contains the executed payment and independent recipient receipt; stand state files and identities are not uploaded.
 
+A separate native scenario first pays successfully, then submits another payment with zero execution reserve through the real binary. The pinned host rejects it with `RouteRequiresFee` before execution. The console must halt and block retries; new processes independently inspect the saved vault and recipient, requiring unchanged agent nonce, spent amount and delivery count. The `zero-reserve-*` receipts retain that evidence. This tests a pre-execution fee gate, **not** mid-execution FUEL exhaustion, process-crash atomicity or automatic restart recovery.
+
+### Coverage-guided guest fuzzing
+
+The separate [fuzz package](../fuzz/Cargo.toml) uses pinned `libfuzzer-sys` and the same SDK revision as the contract. It does not add production dependencies. `state_init` mutates state bytes, initialization arguments and deployment envelopes; `canonical_message` mutates complete ACMI inputs through the SDK decoder and real contract entrypoints. The oracles check canonical state, effect-free rejections, immutable grant fields, role/nonce checks and exact payment-plus-reserve accounting. Canonical seed builders are shared with adapter tests, not production code.
+
+The [guest fuzz workflow](../.github/workflows/guest-fuzz.yml) installs `cargo-fuzz 0.13.2` into a project-local directory and uses `nightly-2026-01-30` only for fuzzing. The deployed WASM build remains on Rust 1.93.0. It retains the synthetic corpus, crash inputs, logs and LLVM source-coverage data. CI bounds each target to 60 seconds with 4,096-byte inputs, a 10-second per-input timeout and a 2 GiB fuzzer RSS limit. A green run is a bounded search, not proof of correctness; execution counts include repeated/similar mutations and are not independent test cases.
+
+For a fresh Linux x86-64 run, from the repository root:
+
+```sh
+rustup toolchain install nightly-2026-01-30 --profile minimal --component llvm-tools-preview --component rustfmt
+cargo +nightly-2026-01-30 install cargo-fuzz --version 0.13.2 --locked --root .tools/fuzz
+export PATH="$PWD/.tools/fuzz/bin:$PATH"
+cargo +nightly-2026-01-30 fetch --manifest-path fuzz/Cargo.toml --locked
+cargo +nightly-2026-01-30 run --manifest-path fuzz/Cargo.toml --locked --example seed -- fuzz/corpus
+cd contract
+CARGO_NET_OFFLINE=true cargo +nightly-2026-01-30 fuzz run --fuzz-dir ../fuzz state_init -- \
+  -max_total_time=120 -max_len=4096 -timeout=10 -rss_limit_mb=2048 -seed=20261013 -print_final_stats=1
+CARGO_NET_OFFLINE=true cargo +nightly-2026-01-30 fuzz run --fuzz-dir ../fuzz canonical_message -- \
+  -max_total_time=120 -max_len=4096 -timeout=10 -rss_limit_mb=2048 -seed=20261013 -print_final_stats=1
+```
+
+The seed command refuses an existing corpus directory. To extend a retained corpus, omit that command and rerun the targets; vary the seed for further exploration. Follow the workflow's `cargo fuzz coverage` and `llvm-cov report` commands after the campaign finishes. Coverage replay executes the retained corpus once; it is not another fuzz campaign. The [Rust Fuzz Book](https://rust-fuzz.github.io/book/cargo-fuzz/coverage.html) explains the source-coverage distinction.
+
+These targets exercise native-compiled guest/SDK code, not the WASM host, live chain, console receipt parser, signature cryptography or arbitrary multi-message lifecycle sequences. Existing generated lifecycle and native console tests remain separate evidence. Reproduce any failure against the exact source and lockfiles before classifying it as a contract defect.
+
 ### Remaining release gates
 
 - Host cryptographic verification and signature binding to the intended vault/network; the pinned CLI cannot submit raw forged or chosen-nonce messages.
-- Host-level atomicity, fuel exhaustion, failed-delivery/refund accounting and crash/restart behavior beyond the tested receipt-loss boundary.
-- Coverage-guided parser fuzzing, broader arbitrary action sequences and an independent AVM-aware review.
+- Host-level atomicity, mid-execution fuel exhaustion, failed-delivery/refund accounting and crash/restart behavior beyond the tested receipt-loss and pre-execution fee boundaries.
+- Longer and broader fuzz campaigns, console receipt-parser fuzzing, arbitrary action sequences and an independent AVM-aware review.
 - Target-network compatibility and a separately approved deployment procedure before any network use.
 
 The [pinned SDK release notes](https://github.com/gosh-sh/avm-sdk/blob/0cbca40fad9a8f11863197cbcbaf6208651752b9/docs/releases.md) state that the runtime binaries come from private sources. Public guest tests and SDK source inspection cannot replace review of that host implementation. Record an unavailable check as a gap, not a passing result.
