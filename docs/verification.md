@@ -104,6 +104,8 @@ The seed command refuses an existing corpus directory. To extend a retained corp
 
 These targets exercise native-compiled guest/SDK code, not the WASM host, live chain, console receipt parser, signature cryptography or arbitrary multi-message lifecycle sequences. Existing generated lifecycle and native console tests remain separate evidence. Reproduce any failure against the exact source and lockfiles before classifying it as a contract defect.
 
+One outstanding oracle improvement is to independently compare every initialized cap, exact expiry and recipient field with the input bytes. Current fuzz checks establish valid initialization and canonical roundtrips, while deterministic tests check selected expected values; they do not yet exclude every valid-but-incorrect initialization result.
+
 ### Remaining release gates
 
 - Host cryptographic verification and signature binding to the intended vault/network; the pinned CLI cannot submit raw forged or chosen-nonce messages.

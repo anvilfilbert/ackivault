@@ -25,6 +25,7 @@ jobs:
           cargo +nightly-2026-01-30 install cargo-fuzz --version 0.13.2 --locked --root .tools/fuzz
           cargo +nightly-2026-01-30 fetch --manifest-path fuzz/Cargo.toml --locked
       - name: Seed, fuzz and measure coverage
+        shell: bash
         env:
           CARGO_NET_OFFLINE: 'true'
         run: |
