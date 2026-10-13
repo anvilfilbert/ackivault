@@ -46,8 +46,8 @@ test("an internally rejected recipient cannot restore allowance or be reported a
   assert.equal(payment.statusCode, 0);
   assert.equal(decodeVault(payment.raw_state).spent, "15");
   assert.equal(payment.events.length, 1, "dispatch alone must not imply recipient acceptance");
-  const queue = z.object({ queue: z.object({ message_count: z.number().int().nonnegative() }) }).parse(JSON.parse(rawPayment)).queue;
-  assert.equal(queue.message_count, 0, "the stand must drain the failed delivery before reconciliation");
+  const queue = z.object({ queue: z.object({ after: z.number().int().nonnegative() }) }).parse(JSON.parse(rawPayment)).queue;
+  assert.equal(queue.after, 0, "the stand must drain the failed delivery before reconciliation");
   const stateFile = path.join(stand.evidenceDirectory, "developer.state");
   const beforeRetry = await readFile(stateFile);
   await assert.rejects(stand.execute({ action: "pay", amount: "10" }), (error: Error): boolean => error instanceof RequestError && error.status === 409);
