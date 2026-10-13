@@ -9,7 +9,8 @@ import { decodeCall, decodeInspection, decodeRecipient, decodeVault, ReceiptErro
 import { hostStatus } from "./http-request.js";
 import { nativeCommand, nativeRecipientSnapshot, receiptLossSdk } from "./receipt-loss.js";
 import { zeroReserveSdk } from "./zero-reserve.js";
-import { rejectedDeliverySdk } from "./rejected-delivery.js";
+import { nativeExecutionCount, rejectedDeliverySdk } from "./rejected-delivery.js";
+import { decodeOutput } from "../src/acmo.js";
 import { z } from "zod";
 
 function required(name: string): string {
@@ -36,7 +37,12 @@ test("an internally rejected recipient cannot restore allowance or be reported a
   const lastInspection = funded.activity.at(-1)!;
   assert.equal(lastInspection.action, "ackivault.inspect");
   await writeFile(path.join(faults, "before-vault.json"), await readFile(path.join(stand.evidenceDirectory, lastInspection.file)), { flag: "wx", mode: 0o600 });
+  const stateFile = path.join(stand.evidenceDirectory, "developer.state");
+  const executionsBefore = await nativeExecutionCount(sdkRoot, stateFile);
   await assert.rejects(stand.execute({ action: "pay", amount: "10" }), (error: Error): boolean => error instanceof ReceiptError && error.message.startsWith("Delivery mismatch:"));
+  const executionsAfter = await nativeExecutionCount(sdkRoot, stateFile);
+  await writeFile(path.join(faults, "execution-counts.json"), JSON.stringify({ before: executionsBefore, after: executionsAfter }), { flag: "wx", mode: 0o600 });
+  assert.equal(executionsAfter - executionsBefore, 3, "payment, internal recipient and console snapshot must each execute");
   const halted = stand.snapshot();
   assert.deepEqual(halted.availableActions, []);
   assert.notEqual(halted.failure, null);
@@ -44,11 +50,11 @@ test("an internally rejected recipient cannot restore allowance or be reported a
   const rawPayment = await readFile(path.join(faults, "dispatched-payment.json"), "utf8");
   const payment = decodeCall(rawPayment);
   assert.equal(payment.statusCode, 0);
+  assert.equal(decodeOutput(Buffer.from(payment.raw_executor_output, "hex")).outboundCount, 1, "the payment must actually emit an outbound");
   assert.equal(decodeVault(payment.raw_state).spent, "15");
   assert.equal(payment.events.length, 1, "dispatch alone must not imply recipient acceptance");
   const queue = z.object({ queue: z.object({ after: z.number().int().nonnegative() }) }).parse(JSON.parse(rawPayment)).queue;
   assert.equal(queue.after, 0, "the stand must drain the failed delivery before reconciliation");
-  const stateFile = path.join(stand.evidenceDirectory, "developer.state");
   const beforeRetry = await readFile(stateFile);
   await assert.rejects(stand.execute({ action: "pay", amount: "10" }), (error: Error): boolean => error instanceof RequestError && error.status === 409);
   assert.deepEqual(await readFile(stateFile), beforeRetry);

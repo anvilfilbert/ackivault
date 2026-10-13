@@ -1,5 +1,16 @@
 import { mkdir, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { z } from "zod";
+import { nativeCommand } from "./receipt-loss.js";
+
+/** Sample the original stand's executor counter without executing a contract or changing state. */
+export async function nativeExecutionCount(sdkRoot: string, state: string): Promise<number> {
+  const result = await nativeCommand(sdkRoot, ["inspect", "--state", state,
+    "--wasmtime-profile", path.join(sdkRoot, "profiles/wasmtime-release-profile.v1")]);
+  if (result.code !== 0) throw new Error(`Native execution-count inspection failed: exit ${result.code}; state: ${state}; stdout: ${result.stdout}; stderr: ${result.stderr}`);
+  return z.object({ status: z.literal("ok"), counters: z.object({ message_executor_calls: z.number().int().nonnegative() }) })
+    .parse(JSON.parse(result.stdout)).counters.message_executor_calls;
+}
 
 /** Configure the real recipient's external-only method as the vault's internal payment destination. */
 export async function rejectedDeliverySdk(sdkRoot: string, directory: string): Promise<string> {
