@@ -2,6 +2,18 @@ import { execFile } from "node:child_process";
 import { mkdir, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+export type NativeResult = { code: number; stdout: string; stderr: string };
+
+/** Run the unmodified executable in a new process; preserve nonzero status for explicit assertions. */
+export async function nativeCommand(sdkRoot: string, args: string[]): Promise<NativeResult> {
+  return new Promise<NativeResult>((resolve, reject): void => {
+    execFile(path.join(sdkRoot, "bin/avm-local-stand"), args, { encoding: "utf8", maxBuffer: 4 * 1024 * 1024 }, (error, stdout, stderr): void => {
+      if (error !== null && typeof error.code !== "number") { reject(error); return; }
+      resolve({ code: error === null ? 0 : Number(error.code), stdout, stderr });
+    });
+  });
+}
+
 /** Execute the actual stand, preserving the real payment receipt but corrupting its stdout. */
 export async function receiptLossSdk(sdkRoot: string, directory: string): Promise<string> {
   const proxyRoot = path.join(directory, "receipt-loss-sdk");
@@ -33,10 +45,7 @@ export async function nativeRecipientSnapshot(sdkRoot: string, state: string, ad
     "--address", address, "--method", "stand.snapshot", "--args-json", "null", "--identity", "user",
     "--value-main", "0", "--extra-currencies", "", "--block-time", String(blockTime),
     "--created-at", String(blockTime), "--expire-at", String(blockTime + 3600), "--fuel-fee-shells", "1000"];
-  return new Promise<string>((resolve, reject): void => {
-    execFile(path.join(sdkRoot, "bin/avm-local-stand"), args, { encoding: "utf8", maxBuffer: 4 * 1024 * 1024 }, (error, stdout, stderr): void => {
-      if (error) reject(new Error(`Native recipient verification failed: ${error.message}; stdout: ${stdout}; stderr: ${stderr}`, { cause: error }));
-      else resolve(stdout);
-    });
-  });
+  const result = await nativeCommand(sdkRoot, args);
+  if (result.code !== 0) throw new Error(`Native recipient verification failed: exit ${result.code}; stdout: ${result.stdout}; stderr: ${result.stderr}`);
+  return result.stdout;
 }

@@ -86,4 +86,8 @@ jobs:
             .stand/console/session-*/*.json
             .stand/console/receipt-loss-*/executed-payment.json
             .stand/console/receipt-loss-*/verified-recipient.json
+            .stand/console/fuel-exhaustion-*/first-payment.json
+            .stand/console/fuel-exhaustion-*/exhausted-payment.json
+            .stand/console/fuel-exhaustion-*/verified-vault.json
+            .stand/console/fuel-exhaustion-*/verified-recipient.json
           if-no-files-found: ignore
