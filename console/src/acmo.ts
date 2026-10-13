@@ -73,7 +73,7 @@ function outbound(cursor: Cursor): Cursor {
 export function decodeOutput(data: Buffer): Output {
   let cursor: Cursor = { data, offset: 0 };
   const magic = take(cursor, 4); cursor = magic.next;
-  if (magic.bytes.toString("ascii") !== "ACMO") throw new FrameError("Executor output must have the ACMO header");
+  if (!magic.bytes.equals(Buffer.from("ACMO", "ascii"))) throw new FrameError("Executor output must have the ACMO header");
   const status = u32(cursor); cursor = status.next;
   const flags = take(cursor, 1); cursor = flags.next;
   const success = status.value === 0;

@@ -11,6 +11,26 @@ import { hostStatus } from "./http-request.js";
 const evidenceDirectory: string = process.env.ACKIVAULT_EVIDENCE_DIR ?? "";
 if (evidenceDirectory.length === 0) throw new Error("ACKIVAULT_EVIDENCE_DIR must point to native stand receipts");
 
+test("every single-byte header corruption rejects real success and rejection receipts", async (): Promise<void> => {
+  for (const name of ["pay", "over-cap"]) {
+    const call = decodeCall(await readFile(path.join(evidenceDirectory, `${name}.json`), "utf8"));
+    const frame = Buffer.from(call.raw_executor_output, "hex");
+    assert.equal(frame.subarray(0, 4).toString("hex"), "41434d4f");
+    for (let offset = 0; offset < 4; offset++) {
+      for (let byte = 0; byte <= 255; byte++) {
+        if (byte === frame[offset]) continue;
+        const corrupted = Buffer.from(frame);
+        corrupted[offset] = byte;
+        assert.throws(
+          () => decodeCall(JSON.stringify({ ...call, raw_executor_output: corrupted.toString("hex") })),
+          FrameError,
+          `${name}: header byte ${offset} replaced by ${byte}`,
+        );
+      }
+    }
+  }
+});
+
 test("every truncated real frame and appended byte is rejected, not accepted as success", async (): Promise<void> => {
   for (const name of ["pay", "over-cap", "revoke", "withdraw", "revoked-pay", "recipient-after-withdraw"]) {
     const call = decodeCall(await readFile(path.join(evidenceDirectory, `${name}.json`), "utf8"));
