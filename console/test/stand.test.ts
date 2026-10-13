@@ -5,16 +5,75 @@ import test from "node:test";
 import { LocalStand } from "../src/stand.js";
 import { createLiveServer, listen } from "../src/http.js";
 import { RequestError, snapshotSchema } from "../src/model.js";
-import { decodeCall, decodeRecipient, decodeVault, verifyFunding } from "../src/receipts.js";
+import { decodeCall, decodeInspection, decodeRecipient, decodeVault, ReceiptError, verifyFunding } from "../src/receipts.js";
 import { hostStatus } from "./http-request.js";
 import { nativeCommand, nativeRecipientSnapshot, receiptLossSdk } from "./receipt-loss.js";
 import { zeroReserveSdk } from "./zero-reserve.js";
+import { rejectedDeliverySdk } from "./rejected-delivery.js";
+import { z } from "zod";
 
 function required(name: string): string {
   const value: string = process.env[name] ?? "";
   assert.notEqual(value, "", `${name} must identify the actual native stand input`);
   return path.resolve(value);
 }
+
+test("an internally rejected recipient cannot restore allowance or be reported as delivery", async (): Promise<void> => {
+  const sdkRoot = required("ACKIVAULT_SDK_ROOT");
+  const stateParent = required("ACKIVAULT_CONSOLE_STATE");
+  await mkdir(stateParent, { recursive: true });
+  const faults = await mkdtemp(path.join(stateParent, "rejected-delivery-"));
+  const stand = new LocalStand({
+    sdkRoot: await rejectedDeliverySdk(sdkRoot, faults),
+    vaultArtifacts: required("ACKIVAULT_VAULT_ARTIFACTS"),
+    receiptArtifacts: required("ACKIVAULT_RECEIPT_ARTIFACTS"),
+    stateParent,
+  });
+  const created = await stand.execute({ action: "create" });
+  assert.equal(created.vault!.recipients[0]!.methodId, String(0x7a9236e99b7ae9ddn));
+  const receiver = created.vault!.recipients[0]!.address;
+  const funded = await stand.execute({ action: "fund" });
+  const lastInspection = funded.activity.at(-1)!;
+  assert.equal(lastInspection.action, "ackivault.inspect");
+  await writeFile(path.join(faults, "before-vault.json"), await readFile(path.join(stand.evidenceDirectory, lastInspection.file)), { flag: "wx", mode: 0o600 });
+  await assert.rejects(stand.execute({ action: "pay", amount: "10" }), (error: Error): boolean => error instanceof ReceiptError && error.message.startsWith("Delivery mismatch:"));
+  const halted = stand.snapshot();
+  assert.deepEqual(halted.availableActions, []);
+  assert.notEqual(halted.failure, null);
+  assert.deepEqual(halted.delivery, { received: "0", count: "0" });
+  const rawPayment = await readFile(path.join(faults, "dispatched-payment.json"), "utf8");
+  const payment = decodeCall(rawPayment);
+  assert.equal(payment.statusCode, 0);
+  assert.equal(decodeVault(payment.raw_state).spent, "15");
+  assert.equal(payment.events.length, 1, "dispatch alone must not imply recipient acceptance");
+  const queue = z.object({ queue: z.object({ message_count: z.number().int().nonnegative() }) }).parse(JSON.parse(rawPayment)).queue;
+  assert.equal(queue.message_count, 0, "the stand must drain the failed delivery before reconciliation");
+  const stateFile = path.join(stand.evidenceDirectory, "developer.state");
+  const beforeRetry = await readFile(stateFile);
+  await assert.rejects(stand.execute({ action: "pay", amount: "10" }), (error: Error): boolean => error instanceof RequestError && error.status === 409);
+  assert.deepEqual(await readFile(stateFile), beforeRetry);
+  const time = Math.max(Math.floor(Date.now() / 1000), ...halted.activity.map((entry): number => entry.time)) + 100;
+  const verified = await nativeCommand(sdkRoot, ["call", "--state", stateFile,
+    "--wasmtime-profile", path.join(sdkRoot, "profiles/wasmtime-release-profile.v1"),
+    "--address", halted.vault!.address, "--method", "ackivault.inspect", "--args-json", "null", "--identity", "package-owner",
+    "--value-main", "0", "--extra-currencies", "", "--block-time", String(time), "--created-at", String(time),
+    "--expire-at", String(time + 3600), "--fuel-fee-shells", "1000"]);
+  assert.equal(verified.code, 0, verified.stdout + verified.stderr);
+  await writeFile(path.join(faults, "verified-vault.json"), verified.stdout, { flag: "wx", mode: 0o600 });
+  const inspected = decodeCall(verified.stdout);
+  assert.equal(inspected.statusCode, 0);
+  const actual = decodeVault(inspected.raw_state);
+  const dispatched = decodeVault(payment.raw_state);
+  assert.deepEqual(actual, { ...dispatched, ownerNonce: actual.ownerNonce });
+  const recipient = await nativeRecipientSnapshot(sdkRoot, stateFile, receiver, time + 1);
+  await writeFile(path.join(faults, "verified-recipient.json"), recipient, { flag: "wx", mode: 0o600 });
+  const delivered = decodeCall(recipient);
+  assert.equal(delivered.statusCode, 0);
+  assert.deepEqual(decodeRecipient(delivered.raw_state), { received: "0", count: "0" });
+  console.log(JSON.stringify({ event: "rejected_delivery_accounting", balanceBeforeInspection: funded.balance!.shells,
+    beforeInspectionFee: lastInspection.fee, paymentFee: payment.receipt.charged_shells,
+    balanceAfterPayment: decodeInspection(inspected.raw_executor_output), spent: actual.spent }));
+});
 
 test("a zero-budget native payment cannot alter a previously spent grant or silently retry", async (): Promise<void> => {
   const sdkRoot = required("ACKIVAULT_SDK_ROOT");

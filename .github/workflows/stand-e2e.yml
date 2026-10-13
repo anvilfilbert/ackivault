@@ -90,4 +90,8 @@ jobs:
             .stand/console/zero-reserve-*/rejected-payment.json
             .stand/console/zero-reserve-*/verified-vault.json
             .stand/console/zero-reserve-*/verified-recipient.json
+            .stand/console/rejected-delivery-*/before-vault.json
+            .stand/console/rejected-delivery-*/dispatched-payment.json
+            .stand/console/rejected-delivery-*/verified-vault.json
+            .stand/console/rejected-delivery-*/verified-recipient.json
           if-no-files-found: ignore
