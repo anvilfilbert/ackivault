@@ -7,7 +7,7 @@
   "engines": { "node": ">=22.18.0 <23" },
   "scripts": {
     "build": "tsc && esbuild browser/app.ts --bundle --platform=browser --format=esm --outfile=dist/browser/app.js",
-    "test": "node --test dist/test/receipts.test.js dist/test/evidence.test.js",
+    "test": "node --test dist/test/receipts.test.js dist/test/evidence.test.js dist/test/boundaries.test.js",
     "test:native": "node --test dist/test/stand.test.js",
     "live": "node dist/src/live.js",
     "evidence": "node dist/src/evidence.js"

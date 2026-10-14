@@ -4,6 +4,10 @@
 /tests/stand/receipt/target/
 /console/node_modules/
 /console/dist/
+/fuzz/target/
+/fuzz/corpus/
+/fuzz/artifacts/
+/fuzz/coverage/
 .DS_Store
 .env
 .env.*

@@ -60,6 +60,65 @@ A stand transport receipt can report `status: ok` while the contract rejects a c
 
 ## Scope of the proof
 
+### Development and security testing ongoing
+
+This is a local demonstration under active adversarial testing, not an independent security audit. The additional checks use test identities only and do not authorize real funds or network deployment.
+
+The contract suite includes generated payment sequences with independently budgeted allowances, interleaved owner inspections, replay attempts and fixed-recipient checks. It also covers revocation/recovery, expiry equality, both arithmetic overflow boundaries, maximum nonces, and state-codec invariants. `proptest` is a pinned development-only dependency. CI runs 1,024 cases per property with a recorded seed; a larger repeatable local run is:
+
+```sh
+PROPTEST_CASES=4096 PROPTEST_RNG_SEED=20261013 \
+  cargo test --manifest-path contract/Cargo.toml --locked
+```
+
+Change the seed for additional exploration; retain a failing seed and minimized input. Generated failure seeds are saved beside the property tests as `*.proptest-regressions` and included in CI diagnostics when present. The codec also has an independent literal wire vector; roundtrip tests alone cannot detect matching layout mistakes in both encoder and decoder. These are bounded generated tests, not exhaustive verification or coverage-guided fuzzing. The adapter suite separately checks that truncated state emits no effects and that funding an exhausted grant does not restore allowance.
+
+The console suite rejects every truncated prefix and every one-byte extension of six real native receipt frames, mismatched receipt state, unexpected rejection events and unsafe HTTP requests. It also rejects all 2,040 single-byte substitutions of the four-byte ACMO header across a real accepted receipt and a real rejected receipt, including high-bit variants that lossy ASCII decoding would otherwise accept. These are deterministic boundary checks, not general receipt-parser fuzzing. Use the actual receipts and environment described above; no fabricated successful chain responses substitute for them.
+
+The native console suite also injects receipt loss **after the real stand executes a payment**. A test-only process wrapper preserves the complete response, then truncates stdout. The test requires the console to halt, a retry to leave the stand state file unchanged, and an independent call through the original binary to observe exactly one recipient payment. The `receipt-loss-*` evidence contains the executed payment and independent recipient receipt; stand state files and identities are not uploaded.
+
+A separate native scenario first pays successfully, then submits another payment with zero execution reserve through the real binary. The pinned host rejects it with `RouteRequiresFee` before execution. The console must halt and block retries; new processes independently inspect the saved vault and recipient, requiring unchanged agent nonce, spent amount and delivery count. The `zero-reserve-*` receipts retain that evidence. This tests a pre-execution fee gate, **not** mid-execution FUEL exhaustion, process-crash atomicity or automatic restart recovery.
+
+A failed-delivery scenario configures the existing recipient's external-only `stand.snapshot` method as the grant's internal payment destination. The test wrapper changes only that initialization field and otherwise forwards unmodified native calls and responses. The recipient code rejects internal calls to this method. The test requires exactly one outbound in the payment output and a native executor-counter increase of three: payment, internal recipient and console snapshot. The native stand accepts the vault's dispatch, drains its queue, records 15 units of allowance use and emits no recipient acceptance. Fresh processes observe unchanged spent/agent state and zero recipient receipts. The console must halt on the delivery mismatch and reject a retry without changing the saved stand state. The `rejected-delivery-*` artifacts contain the pre-payment vault inspection, dispatch, independent vault/recipient receipts, and before/after counts sampled from the original stand's read-only inspection. The pinned CLI does not expose the internal recipient's status code; the exact rejection branch is inferred from recipient source, not independently proven by an internal receipt.
+
+These observations prove neither a refund nor loss of the transferred value: the recipient's receipt counter is application state, not its account balance. The test also records the vault's before/after balance observations and charged fees, but calls and elapsed block time can incur additional costs. They are not a per-message refund ledger. This scenario covers a same-DApp local recipient rejection, not chargeable cross-DApp delivery or callbacks. The [pinned fee rules](https://github.com/gosh-sh/avm-sdk/blob/0cbca40fad9a8f11863197cbcbaf6208651752b9/docs/fuel-and-fees.md) distinguish those routes: local-free reserves are not debited; on chargeable routes unused reserve returns through a requested callback, otherwise it is burned. AckiVault requests no callbacks and never restores allowance automatically. Transfer-value refunds and chargeable-route settlement remain unverified.
+
+### Coverage-guided guest fuzzing
+
+The separate [fuzz package](../fuzz/Cargo.toml) uses pinned `libfuzzer-sys` and the same SDK revision as the contract. It does not add production dependencies. `state_init` mutates state bytes, initialization arguments and deployment envelopes; `canonical_message` mutates complete ACMI inputs through the SDK decoder and real contract entrypoints. The oracles check canonical state, effect-free rejections, immutable grant fields, role/nonce checks and exact payment-plus-reserve accounting. Accepted initialization must preserve the exact cap, expiry, recipient count and every recipient address, method and reserve byte from the input, for both raw arguments and deployment envelopes. These expectations do not use the production decoder. Seeds include all four distinct recipient slots and varied reserves, including zero and `u128::MAX`. Canonical seed builders are shared with adapter tests, not production code.
+
+The [guest fuzz workflow](../.github/workflows/guest-fuzz.yml) installs `cargo-fuzz 0.13.2` into a project-local directory and uses `nightly-2026-01-30` only for fuzzing. The deployed WASM build remains on Rust 1.93.0. It retains the synthetic corpus, crash inputs, logs and LLVM source-coverage data. CI bounds each target to 60 seconds with 4,096-byte inputs, a 10-second per-input timeout and a 2 GiB fuzzer RSS limit. A green run is a bounded search, not proof of correctness; execution counts include repeated/similar mutations and are not independent test cases.
+
+For a fresh Linux x86-64 run, from the repository root:
+
+```sh
+rustup toolchain install nightly-2026-01-30 --profile minimal --component llvm-tools-preview --component rustfmt
+cargo +nightly-2026-01-30 install cargo-fuzz --version 0.13.2 --locked --root .tools/fuzz
+export PATH="$PWD/.tools/fuzz/bin:$PATH"
+cargo +nightly-2026-01-30 fetch --manifest-path fuzz/Cargo.toml --locked
+cargo +nightly-2026-01-30 run --manifest-path fuzz/Cargo.toml --locked --example seed -- fuzz/corpus
+cd contract
+CARGO_NET_OFFLINE=true cargo +nightly-2026-01-30 fuzz run --fuzz-dir ../fuzz state_init -- \
+  -max_total_time=120 -max_len=4096 -timeout=10 -rss_limit_mb=2048 -seed=20261013 -print_final_stats=1
+CARGO_NET_OFFLINE=true cargo +nightly-2026-01-30 fuzz run --fuzz-dir ../fuzz canonical_message -- \
+  -max_total_time=120 -max_len=4096 -timeout=10 -rss_limit_mb=2048 -seed=20261013 -print_final_stats=1
+```
+
+The seed command refuses an existing corpus directory. To extend a retained corpus, omit that command and rerun the targets; vary the seed for further exploration. Follow the workflow's `cargo fuzz coverage` and `llvm-cov report` commands after the campaign finishes. Coverage replay executes the retained corpus once; it is not another fuzz campaign. The [Rust Fuzz Book](https://rust-fuzz.github.io/book/cargo-fuzz/coverage.html) explains the source-coverage distinction.
+
+These targets exercise native-compiled guest/SDK code, not the WASM host, live chain, console receipt parser, signature cryptography or arbitrary multi-message lifecycle sequences. Existing generated lifecycle and native console tests remain separate evidence. Reproduce any failure against the exact source and lockfiles before classifying it as a contract defect.
+
+Oracle sensitivity was checked in disposable copies: an incorrect but still valid cap passed the previous initialization oracle and failed the exact-byte oracle; altered expiry and recipient method also failed. Restored production code passes the same four-recipient input. These selected mutations establish that those checks can detect their intended faults, not that every initialization defect is covered.
+
+### Remaining release gates
+
+- Host cryptographic verification and signature binding to the intended vault/network; the pinned CLI cannot submit raw forged or chosen-nonce messages.
+- Host-level atomicity, mid-execution fuel exhaustion, transfer-value refunds/chargeable-route settlement and crash/restart behavior beyond the tested receipt-loss, local recipient rejection and pre-execution fee boundaries.
+- Longer and broader fuzz campaigns, console receipt-parser fuzzing, arbitrary action sequences and an independent AVM-aware review.
+- Target-network compatibility and a separately approved deployment procedure before any network use.
+
+The [pinned SDK release notes](https://github.com/gosh-sh/avm-sdk/blob/0cbca40fad9a8f11863197cbcbaf6208651752b9/docs/releases.md) state that the runtime binaries come from private sources. Public guest tests and SDK source inspection cannot replace review of that host implementation. Record an unavailable check as a gap, not a passing result.
+
 The canonical adapter tests also exercise duplicate nonces, wrong caller types, malformed inputs and deployment envelope boundaries. The stand CLI generates fresh signed calls and has no raw-message or chosen-nonce submission option, so duplicate-nonce rejection is proven at the adapter boundary rather than by a native resubmission.
 
 These results establish local guest behavior against the pinned AVM distribution. Network compatibility and the host's cryptographic signature verification are separate claims. The repository has no network deployment procedure or real wallet credentials.
