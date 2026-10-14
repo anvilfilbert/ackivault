@@ -27,11 +27,24 @@ jobs:
           mkdir -p .tools/release
           curl --fail --location --retry 3 --retry-all-errors --retry-delay 2 \
             --output .tools/release/avm-sdk-linux-x86_64.tar.gz \
-            https://github.com/gosh-sh/avm-sdk/releases/download/avm-dev-335a0f09fdbc-sdk-0cbca40fad9a/avm-sdk-linux-x86_64.tar.gz
+            https://github.com/gosh-sh/avm-sdk/releases/download/avm-dev-06e96ef71006-sdk-0748f4f0767a/avm-sdk-linux-x86_64.tar.gz
           printf '%s  %s\n' \
-            '2171ee865bc9fc2e1a1274dfdd0f4330dc362b1f49d38c0a35c4de41aa61d6f3' \
+            '8728497cf1e476d3d770a09b19929f7c196f2637654642727432b4c285c85143' \
             '.tools/release/avm-sdk-linux-x86_64.tar.gz' | sha256sum --check
           tar -xzf .tools/release/avm-sdk-linux-x86_64.tar.gz -C .tools/release
+          cd .tools/release/avm-sdk-linux-x86_64
+          sha256sum --check SHA256SUMS
+          jq -e '.schema == "gosh.avm-sdk.release.v2" and
+            .sdk_commit == "0748f4f0767a26da8bc363bcb6b5585539d6970e" and
+            .ackinacki_commit == "06e96ef71006cca020575cbf35e6b82cc82a324e" and
+            .release_tag == "avm-dev-06e96ef71006-sdk-0748f4f0767a" and
+            .bundle_version == "0.2.0" and .guest_version == "0.1.1" and
+            .rust_toolchain == "1.93.0"' BUILD-MANIFEST.json
+          printf '%s  %s\n' \
+            "$(jq -er .wasmtime_profile_sha256 BUILD-MANIFEST.json)" \
+            'profiles/wasmtime-release-profile.v1' \
+            "$(jq -er .runtime_lock_sha256 BUILD-MANIFEST.json)" \
+            'provenance/runtime.Cargo.lock' | sha256sum --check
       - name: Test and build contract
         env:
           PROPTEST_CASES: '1024'
@@ -55,6 +68,7 @@ jobs:
           sha256sum --check .tools/receipt-first.sha256
           rustc --edition=2021 tools/check-abi-ids.rs -o .tools/check-abi-ids
           .tools/check-abi-ids contract/target/avm/contract.acab
+          git diff --exit-code -- contract/Cargo.lock tests/stand/receipt/Cargo.lock
       - name: Deploy and replay in native stand
         run: |
           bash scripts/stand-e2e.sh \
@@ -81,6 +95,10 @@ jobs:
         with:
           name: stand-diagnostics
           path: |
+            .tools/release/avm-sdk-linux-x86_64/BUILD-MANIFEST.json
+            .tools/release/avm-sdk-linux-x86_64/profiles/wasmtime-release-profile.v1
+            contract/target/avm-build-provenance.txt
+            tests/stand/receipt/target/avm-build-provenance.txt
             contract/tests/*.proptest-regressions
             .stand/native/*.json
             .stand/console/session-*/*.json

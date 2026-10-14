@@ -9,7 +9,7 @@ cargo-fuzz = true
 
 [dependencies]
 ackivault = { path = "../contract" }
-avm-contract-sdk = { git = "https://github.com/gosh-sh/avm-sdk.git", rev = "0cbca40fad9a8f11863197cbcbaf6208651752b9" }
+avm-contract-sdk = { git = "https://github.com/gosh-sh/avm-sdk.git", rev = "0748f4f0767a26da8bc363bcb6b5585539d6970e" }
 libfuzzer-sys = "=0.4.13"
 
 [[bin]]

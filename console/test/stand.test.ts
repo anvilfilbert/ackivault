@@ -211,6 +211,24 @@ test("native console transfers, enforces its grant and rejects unsafe requests",
     assert.equal(final.delivery.received, "17");
     assert.equal(final.delivery.count, "2");
     assert.equal(final.activity.some((entry): boolean => entry.statusCode === 1018), true);
+    const stateFile = path.join(stand.evidenceDirectory, "developer.state");
+    const journal = z.object({
+      status: z.literal("ok"),
+      account_state_root: z.string().regex(/^[0-9a-f]{64}$/),
+      registry_root: z.string().regex(/^[0-9a-f]{64}$/),
+      cumulative_fee_shells: z.string().regex(/^[0-9]+$/),
+      accepted_input_count: z.number().int().positive(),
+    });
+    const sdkRoot = required("ACKIVAULT_SDK_ROOT");
+    const profile = path.join(sdkRoot, "profiles/wasmtime-release-profile.v1");
+    const inspection = await nativeCommand(sdkRoot, ["inspect", "--state", stateFile, "--wasmtime-profile", profile]);
+    assert.equal(inspection.code, 0, inspection.stdout + inspection.stderr);
+    const replay = await nativeCommand(sdkRoot, ["replay", "--state", stateFile, "--wasmtime-profile", profile]);
+    assert.equal(replay.code, 0, replay.stdout + replay.stderr);
+    await writeFile(path.join(stand.evidenceDirectory, "console-inspect.json"), inspection.stdout, { flag: "wx", mode: 0o600 });
+    await writeFile(path.join(stand.evidenceDirectory, "console-replay.json"), replay.stdout, { flag: "wx", mode: 0o600 });
+    assert.deepEqual(journal.parse(JSON.parse(replay.stdout)), journal.parse(JSON.parse(inspection.stdout)),
+      "the HTTP-driven journey must replay the same populated account/registry roots, fees and accepted inputs");
     assert.equal((await action('{"action":"create"}', origin)).status, 409);
     assert.equal(await hostStatus(`${origin}/api/snapshot`, "untrusted.invalid"), 403);
     console.log(JSON.stringify({ event: "native_console_verified", directory: stand.evidenceDirectory }));
