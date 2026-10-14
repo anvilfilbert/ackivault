@@ -11,5 +11,5 @@ dependencies = [
 
 [[package]]
 name = "avm-contract-sdk"
-version = "0.1.0"
-source = "git+https://github.com/gosh-sh/avm-sdk.git?rev=0cbca40fad9a8f11863197cbcbaf6208651752b9#0cbca40fad9a8f11863197cbcbaf6208651752b9"
+version = "0.1.1"
+source = "git+https://github.com/gosh-sh/avm-sdk.git?rev=0748f4f0767a26da8bc363bcb6b5585539d6970e#0748f4f0767a26da8bc363bcb6b5585539d6970e"

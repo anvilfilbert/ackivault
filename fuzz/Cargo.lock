@@ -26,8 +26,8 @@ checksum = "3bc62ac97cc33321f50863d514c3bc38a453947a8f9e781137e47c7401020aed"
 
 [[package]]
 name = "avm-contract-sdk"
-version = "0.1.0"
-source = "git+https://github.com/gosh-sh/avm-sdk.git?rev=0cbca40fad9a8f11863197cbcbaf6208651752b9#0cbca40fad9a8f11863197cbcbaf6208651752b9"
+version = "0.1.1"
+source = "git+https://github.com/gosh-sh/avm-sdk.git?rev=0748f4f0767a26da8bc363bcb6b5585539d6970e#0748f4f0767a26da8bc363bcb6b5585539d6970e"
 
 [[package]]
 name = "cc"
