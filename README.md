@@ -14,6 +14,8 @@ AckiVault is an experimental Rust smart contract for the [Acki Nacki AVM](https:
 
 The [local web console](console/README.md) exposes the test flow: create, fund, pay, inspect, revoke and withdraw. It shows allowance usage, expiry, recipients and accepted/rejected execution receipts. A separate read-only viewer displays saved CI evidence on hosts that cannot run the native stand.
 
+This is an open-source learning and reference example for AVM contract authors and agent developers, not a hosted custody service or a DEX.DO connector. Use the source, tests and receipts to explore bounded spending and failure handling; the example does not purchase inference or manage a customer's network wallet.
+
 **Status: active development and security testing ongoing.** This is a working local AVM demonstration, not an independently audited or network-deployed wallet. Deeper adversarial testing is in progress; passing tests are not approval for real funds. Neither console entrypoint connects to Shellnet or Mainnet. No real keys, funded network accounts or network deployment configuration belong in this repository. Do not deposit real funds.
 
 ## Start reviewing
@@ -26,6 +28,8 @@ The [local web console](console/README.md) exposes the test flow: create, fund, 
 ## Verify
 
 Use Linux x86-64-v3 with Rustup and `jq`. Install the [pinned AVM SDK release](https://github.com/gosh-sh/avm-sdk/releases/tag/avm-dev-335a0f09fdbc-sdk-0cbca40fad9a), and put its `bin/` directory on `PATH`. Do not mix the packaged stand with a different SDK revision. The Rust version is pinned in `rust-toolchain.toml`; Cargo pins the matching SDK source.
+
+Upstream [AVM SDK 0.2.0 / guest SDK 0.1.1](https://github.com/gosh-sh/avm-sdk/releases/tag/avm-dev-06e96ef71006-sdk-0748f4f0767a) changes local state/event commitments and does not migrate old stand state. AckiVault retains the matched source/runtime pin above until a separate compatibility run validates an upgrade. These upstream changes do not establish Shellnet or Mainnet compatibility.
 
 ```sh
 cargo fmt --manifest-path contract/Cargo.toml --check

@@ -27,11 +27,11 @@ Every CLI invocation is preserved as JSON in the fresh session directory. Pay, R
 
 ## Evidence viewer
 
-Download `stand-diagnostics` from a successful workflow run. Its `native/` directory contains the fixed journey receipts. On any supported Node host, including an ARM Mac, run:
+Download `stand-diagnostics` from a successful workflow run. Its `.stand/native/` directory contains the fixed journey receipts; this parent directory is hidden on many hosts. On any supported Node host, including an ARM Mac, run:
 
 ```sh
 npm run evidence -- \
-  /path/to/stand-diagnostics/native \
+  /path/to/stand-diagnostics/.stand/native \
   SOURCE_COMMIT_SHA \
   https://github.com/anvilfilbert/ackivault/actions/runs/RUN_ID \
   4317
