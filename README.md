@@ -27,9 +27,9 @@ This is an open-source learning and reference example for AVM contract authors a
 
 ## Verify
 
-Use Linux x86-64-v3 with Rustup and `jq`. Install the [pinned AVM SDK release](https://github.com/gosh-sh/avm-sdk/releases/tag/avm-dev-335a0f09fdbc-sdk-0cbca40fad9a), and put its `bin/` directory on `PATH`. Do not mix the packaged stand with a different SDK revision. The Rust version is pinned in `rust-toolchain.toml`; Cargo pins the matching SDK source.
+Use Linux x86-64-v3 with glibc 2.39 or later, Rustup and `jq`. Install the [pinned AVM SDK 0.2.0 / guest SDK 0.1.1 release](https://github.com/gosh-sh/avm-sdk/releases/tag/avm-dev-06e96ef71006-sdk-0748f4f0767a), and put its `bin/` directory on `PATH`. Do not mix the packaged stand with a different SDK revision. The Rust version is pinned in `rust-toolchain.toml`; Cargo pins the matching SDK source.
 
-Upstream [AVM SDK 0.2.0 / guest SDK 0.1.1](https://github.com/gosh-sh/avm-sdk/releases/tag/avm-dev-06e96ef71006-sdk-0748f4f0767a) changes local state/event commitments and does not migrate old stand state. AckiVault retains the matched source/runtime pin above until a separate compatibility run validates an upgrade. These upstream changes do not establish Shellnet or Mainnet compatibility.
+SDK 0.2.0 changes local state/event commitments and does not migrate old stand state. Create fresh local test state and rebuild/redeploy both contracts; keep old state with its matching old binary/profile for historical replay. Rebuilt code hashes and FUEL usage may differ. These local checks do not establish Shellnet or Mainnet compatibility or readiness for an authenticated VPS installation.
 
 ```sh
 cargo fmt --manifest-path contract/Cargo.toml --check

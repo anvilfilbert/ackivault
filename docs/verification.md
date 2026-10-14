@@ -4,9 +4,9 @@ AckiVault demonstrates a bounded SHELL allowance for a separate agent key. The o
 
 ## Reproduce the evidence
 
-Use the source commit recorded by a successful `AckiVault local stand` workflow run. Its native Linux runner installs the pinned Rust toolchain, verifies the SDK archive checksum, runs the Rust tests and Clippy, checks both builds for byte identity, then executes the local AVM stand journey.
+Use the source commit recorded by a successful `AckiVault local stand` workflow run. Its native Linux runner installs the pinned Rust toolchain, verifies the SDK archive and file checksums plus source/profile identities, runs the Rust tests and Clippy, checks both builds for byte identity, then executes the local AVM stand journey. SDK 0.2.0 and guest SDK 0.1.1 are pinned together; never substitute an older profile or reuse populated historical stand state.
 
-For a native reproduction, use Linux x86-64-v3 with Bash, Git, Rustup, `curl`, `tar`, `sha256sum` and `jq` installed. Node.js 22.18 or later in the 22.x line is needed for the console checks. Start from the repository root at the source commit being reviewed. Fetch the matching SDK distribution:
+For a native reproduction, use Linux x86-64-v3 with glibc 2.39 or later, Bash, Git, Rustup, `curl`, `tar`, `sha256sum` and `jq` installed. Node.js 22.18 or later in the 22.x line is needed for the console checks. Start from the repository root at the source commit being reviewed. Fetch the matching SDK distribution:
 
 ```sh
 rustup toolchain install 1.93.0 --profile minimal \
@@ -14,9 +14,9 @@ rustup toolchain install 1.93.0 --profile minimal \
 mkdir -p .tools/release
 curl --fail --location --retry 3 --retry-all-errors --retry-delay 2 \
   --output .tools/release/avm-sdk-linux-x86_64.tar.gz \
-  https://github.com/gosh-sh/avm-sdk/releases/download/avm-dev-335a0f09fdbc-sdk-0cbca40fad9a/avm-sdk-linux-x86_64.tar.gz
+  https://github.com/gosh-sh/avm-sdk/releases/download/avm-dev-06e96ef71006-sdk-0748f4f0767a/avm-sdk-linux-x86_64.tar.gz
 printf '%s  %s\n' \
-  '2171ee865bc9fc2e1a1274dfdd0f4330dc362b1f49d38c0a35c4de41aa61d6f3' \
+  '8728497cf1e476d3d770a09b19929f7c196f2637654642727432b4c285c85143' \
   '.tools/release/avm-sdk-linux-x86_64.tar.gz' | sha256sum --check
 ```
 
@@ -38,7 +38,7 @@ bash scripts/stand-e2e.sh \
   .stand/reviewer-run
 ```
 
-The output directory must not already contain a stand state file. All identities and funds belong to the local stand. Download `stand-diagnostics` from the workflow run to inspect the JSON receipts for that exact commit.
+The output directory must not already contain a stand state file. All identities and funds belong to the local stand. Download `stand-diagnostics` from the workflow run to inspect the JSON receipts, SDK manifest/profile and compiler provenance for that exact commit. Historical state stays paired with its historical binary/profile; there is no supported populated-state migration. New roots/FUEL need not equal historical observations.
 
 The [CI workflow](../.github/workflows/stand-e2e.yml) is the complete automated test recipe, including formatting, Clippy and the clean rebuild comparison. Follow the [console instructions](../console/README.md) for the interactive local test or read-only evidence viewer.
 
@@ -81,7 +81,9 @@ A separate native scenario first pays successfully, then submits another payment
 
 A failed-delivery scenario configures the existing recipient's external-only `stand.snapshot` method as the grant's internal payment destination. The test wrapper changes only that initialization field and otherwise forwards unmodified native calls and responses. The recipient code rejects internal calls to this method. The test requires exactly one outbound in the payment output and a native executor-counter increase of three: payment, internal recipient and console snapshot. The native stand accepts the vault's dispatch, drains its queue, records 15 units of allowance use and emits no recipient acceptance. Fresh processes observe unchanged spent/agent state and zero recipient receipts. The console must halt on the delivery mismatch and reject a retry without changing the saved stand state. The `rejected-delivery-*` artifacts contain the pre-payment vault inspection, dispatch, independent vault/recipient receipts, and before/after counts sampled from the original stand's read-only inspection. The pinned CLI does not expose the internal recipient's status code; the exact rejection branch is inferred from recipient source, not independently proven by an internal receipt.
 
-These observations prove neither a refund nor loss of the transferred value: the recipient's receipt counter is application state, not its account balance. The test also records the vault's before/after balance observations and charged fees, but calls and elapsed block time can incur additional costs. They are not a per-message refund ledger. This scenario covers a same-DApp local recipient rejection, not chargeable cross-DApp delivery or callbacks. The [pinned fee rules](https://github.com/gosh-sh/avm-sdk/blob/0cbca40fad9a8f11863197cbcbaf6208651752b9/docs/fuel-and-fees.md) distinguish those routes: local-free reserves are not debited; on chargeable routes unused reserve returns through a requested callback, otherwise it is burned. AckiVault requests no callbacks and never restores allowance automatically. Transfer-value refunds and chargeable-route settlement remain unverified.
+These observations prove neither a refund nor loss of the transferred value: the recipient's receipt counter is application state, not its account balance. The test also records the vault's before/after balance observations and charged fees, but calls and elapsed block time can incur additional costs. They are not a per-message refund ledger. This scenario covers a same-DApp local recipient rejection, not chargeable cross-DApp delivery or callbacks. The [pinned fee rules](https://github.com/gosh-sh/avm-sdk/blob/0748f4f0767a26da8bc363bcb6b5585539d6970e/docs/fuel-and-fees.md) distinguish those routes: local-free reserves are not debited; on chargeable routes unused reserve returns through a requested callback, otherwise it is burned. AckiVault requests no callbacks and never restores allowance automatically. Transfer-value refunds and chargeable-route settlement remain unverified.
+
+The HTTP-driven native console journey independently invokes stand inspection and journal replay after funding, payments, rejection, revocation and withdrawal. It requires identical populated account/registry roots, cumulative fees and accepted input count, retaining `console-inspect.json` and `console-replay.json` in the session artifacts. This complements the scripted journey's replay check; it does not prove arbitrary crash recovery or independent recomputation of the roots.
 
 ### Coverage-guided guest fuzzing
 
@@ -115,9 +117,10 @@ Oracle sensitivity was checked in disposable copies: an incorrect but still vali
 - Host cryptographic verification and signature binding to the intended vault/network; the pinned CLI cannot submit raw forged or chosen-nonce messages.
 - Host-level atomicity, mid-execution fuel exhaustion, transfer-value refunds/chargeable-route settlement and crash/restart behavior beyond the tested receipt-loss, local recipient rejection and pre-execution fee boundaries.
 - Longer and broader fuzz campaigns, console receipt-parser fuzzing, arbitrary action sequences and an independent AVM-aware review.
+- Authenticated VPS hosting: explicit login and Host/Origin boundaries, bounded child processes, intentional restart behavior and a verified runtime/deployment package. The current console remains localhost-only; none of those hosted controls is implemented or qualified by local CI.
 - Target-network compatibility and a separately approved deployment procedure before any network use.
 
-The [pinned SDK release notes](https://github.com/gosh-sh/avm-sdk/blob/0cbca40fad9a8f11863197cbcbaf6208651752b9/docs/releases.md) state that the runtime binaries come from private sources. Public guest tests and SDK source inspection cannot replace review of that host implementation. Record an unavailable check as a gap, not a passing result.
+The [pinned SDK release notes](https://github.com/gosh-sh/avm-sdk/blob/0748f4f0767a26da8bc363bcb6b5585539d6970e/docs/release-notes.md) state that the runtime binaries come from private sources. Public guest tests and SDK source inspection cannot replace review of that host implementation. Guest MIT licensing and the separate host-binary license are distinct; the example does not redistribute the SDK bundle or grant additional host rights. Record an unavailable check as a gap, not a passing result.
 
 The canonical adapter tests also exercise duplicate nonces, wrong caller types, malformed inputs and deployment envelope boundaries. The stand CLI generates fresh signed calls and has no raw-message or chosen-nonce submission option, so duplicate-nonce rejection is proven at the adapter boundary rather than by a native resubmission.
 

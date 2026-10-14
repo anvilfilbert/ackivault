@@ -102,8 +102,8 @@ export function verifyDelivery(before: Delivery, after: Delivery, amount: string
 
 /**
  * Verify the pinned stand's 100-SHELL deposit shape, not arbitrary Cap'n Proto events.
- * Offsets follow AvmEvent/EventValue in runtime 335a0f09fdbc's embedded schema
- * (SDK 0cbca40fad9a), checked against native receipts. The root has four data
+ * Offsets follow AvmEvent/EventValue in runtime 06e96ef71006's embedded schema
+ * (SDK 0748f4f0767a), checked against native receipts. The root has four data
  * words and six pointers; source IDs occupy bytes 88..152, then txHash, then
  * eventName and one amount_shells U128 field. Canonical U128(100) omits its zero
  * high word. Logical time, wall time, sequence and txHash remain opaque.
