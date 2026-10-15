@@ -55,6 +55,10 @@ async function refresh(): Promise<void> {
   if (!changedRun && pending !== null && matchesRecorded(view, pending)) {
     pending = null; text("hosted-outcome", "A matching outcome is recorded. No action was resent.");
   }
+  if (!changedRun && pending !== null && view.state === "ready" && view.fault === null && view.revision === pending.request.revision) {
+    // A later manual action still uses this same revision, so a delayed old request cannot also execute.
+    pending = null; text("hosted-outcome", "The action is not admitted in this recorded view. Nothing was resent.");
+  }
   locked = false;
   current = view; display(view);
   if (pending === null && !changedRun && view.state === "ready") element("error", HTMLElement).hidden = true;
@@ -74,12 +78,10 @@ async function execute(action: Action): Promise<void> {
   } catch (error) {
     if (!(error instanceof ResponseFailure)) throw error;
     locked = true;
-    // A transport may retry a POST itself; a stale revision can describe its second submission.
-    const notStarted = error.fault?.outcome === "not-started" && error.fault.code !== "STALE_REVISION";
-    if (notStarted) pending = null;
+    // An auth denial can describe an invisible transport retry after the original request executed.
     if (error.fault?.code === "STALE_RUN") changedRun = true;
     showError(error.message);
-    text("hosted-outcome", notStarted ? "This request was not admitted. Sign in if needed, then refresh; nothing will be resent." : "Action result unknown. Do not repeat it. Refresh only the recorded view.");
+    text("hosted-outcome", "Action result unknown. Do not repeat it. Sign in if needed, then refresh only the recorded view.");
   } finally {
     requesting = false; element("refresh", HTMLButtonElement).disabled = false;
     if (current !== null) display(current);

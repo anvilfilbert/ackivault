@@ -120,7 +120,16 @@ try {
   while (child === 0 && performance.now() < deadline) {
     for (const candidate of (await readFile(`/proc/${pid}/task/${pid}/children`, "utf8")).trim().split(/\s+/).filter(Boolean)) {
       try {
-        if (await readlink(`/proc/${candidate}/exe`) === path.join(sdk, "bin/avm-local-stand")) { process.kill(Number(candidate), "SIGSTOP"); child = Number(candidate); break; }
+        if (await readlink(`/proc/${candidate}/exe`) === path.join(sdk, "bin/avm-local-stand")) {
+          process.kill(Number(candidate), "SIGSTOP");
+          for (let attempt = 0; attempt < 50; attempt++) {
+            const state = await readFile(`/proc/${candidate}/status`, "utf8");
+            if (/State:\s+T/.test(state)) { child = Number(candidate); break; }
+            if (/State:\s+Z/.test(state)) break;
+            await setTimeout(2);
+          }
+          if (child !== 0) break;
+        }
       } catch (error) { if (!(error instanceof Error) || !("code" in error) || !["ENOENT", "ESRCH"].includes(String(error.code))) throw error; }
     }
     if (child === 0) await setTimeout(2);

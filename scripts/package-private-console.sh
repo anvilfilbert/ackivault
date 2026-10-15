@@ -4,26 +4,32 @@ set -euo pipefail
 source_root=$(realpath -e "$1")
 sdk=$(realpath -e "$ACKIVAULT_SDK_ROOT")
 output=$(realpath -m "$2")
-[[ ! -e "$output" && -z $(git -C "$source_root" status --porcelain) ]] || { echo 'Clean source and a new package output directory required.' >&2; exit 2; }
+[[ ! -e "$output" && ! -L "$output" && -z $(git -C "$source_root" status --porcelain) ]] || { echo 'Clean source and a new package output directory required.' >&2; exit 2; }
 commit=$(git -C "$source_root" rev-parse HEAD)
 printf '%s  %s\n' '2599204d32a8100847a086c95e16f589589644bf6072496cc19c1e172fb7f586' "$sdk/bin/avm-local-stand" | sha256sum --check
 printf '%s  %s\n' 'd2814c83958f9681845708516e7408fd7e9166c269737c66fbc112f7ea13c49e' "$sdk/bin/avm-contract-build" | sha256sum --check
 printf '%s  %s\n' 'eafd9ee1589b24c8fba8f5212c0571bd796bfc127aeae0edfb5697bd477b39d8' "$sdk/profiles/wasmtime-release-profile.v1" | sha256sum --check
-cd "$source_root/console"
+build_root=$(mktemp -d /tmp/ackivault-package-source.XXXXXXXX)
+cleanup_source() { rm -rf -- "$build_root"; }
+trap cleanup_source EXIT
+git -C "$source_root" archive --format=tar "$commit" | tar -xf - -C "$build_root"
+cd "$build_root/console"
 npm ci
 npm run build
-cd "$source_root"
+cd "$build_root"
 "$sdk/bin/avm-contract-build" build --manifest-path contract/Cargo.toml
 "$sdk/bin/avm-contract-build" build --manifest-path tests/stand/receipt/Cargo.toml
-[[ -z $(git status --porcelain) ]] || { echo 'Build changed tracked source; refusing package.' >&2; exit 1; }
+[[ -z $(git -C "$source_root" status --porcelain) ]] || { echo 'Source changed during build; refusing package.' >&2; exit 1; }
 umask 022
-mkdir -p "$output/console/dist" "$output/deploy" "$output/scripts"
+mkdir -p "$output/console/dist" "$output/console/public" "$output/deploy" "$output/scripts" "$output/vault" "$output/recipient"
 cp -R console/dist/src console/dist/browser "$output/console/dist/"
-cp -R console/public "$output/console/"
+cp console/public/index.html console/public/styles.css "$output/console/public/"
 cp console/package.json console/package-lock.json "$output/console/"
 npm ci --prefix "$output/console" --omit=dev --ignore-scripts
-cp -R contract/target/avm "$output/vault"
-cp -R tests/stand/receipt/target/avm "$output/recipient"
+for artifact in contract.wasm contract.acab contract.descriptor; do
+  cp "contract/target/avm/$artifact" "$output/vault/"
+  cp "tests/stand/receipt/target/avm/$artifact" "$output/recipient/"
+done
 cp LICENSE "$output/"
 cp deploy/private-console/ackivault.service.in "$output/deploy/"
 cp scripts/verify-private-package.sh "$output/scripts/"
@@ -41,4 +47,4 @@ JS
 cd "$output"
 LC_ALL=C find . -type f ! -name FILES.sha256 -print0 | LC_ALL=C sort -z | xargs -0 sha256sum > FILES.sha256
 chmod -R a-w "$output"
-bash "$source_root/scripts/verify-private-package.sh" "$output" "$sdk"
+bash "$build_root/scripts/verify-private-package.sh" "$output" "$sdk"
