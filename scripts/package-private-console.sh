@@ -40,4 +40,5 @@ await writeFile(path.join(pkg,"release.json"),JSON.stringify(manifest)+"\n",{fla
 JS
 cd "$output"
 LC_ALL=C find . -type f ! -name FILES.sha256 -print0 | LC_ALL=C sort -z | xargs -0 sha256sum > FILES.sha256
-chmod -R a-w "$output"+bash "$source_root/scripts/verify-private-package.sh" "$output" "$sdk"
+chmod -R a-w "$output"
+bash "$source_root/scripts/verify-private-package.sh" "$output" "$sdk"
