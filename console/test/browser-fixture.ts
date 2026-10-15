@@ -24,6 +24,7 @@ export type BrowserFixture = {
   origin: string; snapshot: () => Promise<HostedSnapshot>; restart: () => Promise<void>;
   expireLogin: () => Promise<void>; renewLogin: () => Promise<void>; losePaymentResponse: () => void; losePaymentConnection: () => void;
   paymentSubmissions: () => number; stateFile: () => string; close: () => Promise<void>;
+  expireOnPaymentRetry: () => void; challengePayment: () => void; disconnectBeforeAdmission: () => void; restoreTransport: () => void;
 };
 
 /** Real HTTPS edge protocol fixture, not Cloudflare/MFA evidence; all receipts come from the native stand. */
@@ -37,6 +38,9 @@ export async function startBrowserFixture(): Promise<BrowserFixture> {
   let submissions = 0;
   let lose = false;
   let loseConnection = false;
+  let expireOnRetry = false;
+  let challenge = false;
+  let disconnected = false;
   const edge = createServer({ key: await readFile(path.join(ca, "server.key")), cert: await readFile(access.caFile) }, (incoming, outgoing): void => {
     async function forward(): Promise<void> {
       const chunks: Buffer[] = [];
@@ -44,14 +48,29 @@ export async function startBrowserFixture(): Promise<BrowserFixture> {
       const body = Buffer.concat(chunks);
       const payment = incoming.method === "POST" && body.toString("utf8").includes('"action":"pay"');
       if (payment) submissions++;
+      if (payment && challenge) { challenge = false; outgoing.writeHead(200, { "content-type": "text/html" }); outgoing.end("<!doctype html><title>Test login challenge</title>"); return; }
+      if (payment && disconnected) { outgoing.destroy(); return; }
       const drop = payment && lose; if (drop) lose = false;
       const disconnect = payment && loseConnection; if (disconnect) loseConnection = false;
+      const retryWithExpiredIdentity = payment && expireOnRetry; if (retryWithExpiredIdentity) expireOnRetry = false;
       await new Promise<void>((resolve, reject): void => {
         const call = request({ hostname: "127.0.0.1", port, path: incoming.url, method: incoming.method,
           headers: { host: incoming.headers.host!, "cf-access-jwt-assertion": token,
             ...(incoming.headers.origin === undefined ? {} : { origin: incoming.headers.origin }),
             ...(incoming.headers["content-type"] === undefined ? {} : { "content-type": incoming.headers["content-type"] }) } }, (result): void => {
           result.on("error", reject);
+          if (retryWithExpiredIdentity) {
+            // A real edge retry hides the first successful response behind a real authentication denial.
+            result.resume(); result.on("end", (): void => {
+              async function retry(): Promise<void> {
+                token = await access.sign({ ...userClaims(access), exp: Math.floor(Date.now() / 1000) - 1 }, "first");
+                const denied = await hostedRequest(port, token, `https://${incoming.headers.host}`, "POST", body.toString("utf8"));
+                assert.equal(denied.status, 403); outgoing.writeHead(denied.status, { "content-type": "application/json" }); outgoing.end(denied.text);
+              }
+              void retry().then(resolve, reject);
+            });
+            return;
+          }
           if (drop || disconnect) { result.resume(); result.on("end", (): void => {
             if (drop) { outgoing.writeHead(200, { "content-type": "application/json" }); outgoing.write('{"'); }
             setImmediate((): void => { outgoing.destroy(); resolve(); });
@@ -90,6 +109,8 @@ export async function startBrowserFixture(): Promise<BrowserFixture> {
     renewLogin: async (): Promise<void> => { token = await access.sign(userClaims(access), "first"); },
     losePaymentResponse: (): void => { lose = true; }, paymentSubmissions: (): number => submissions,
     losePaymentConnection: (): void => { loseConnection = true; },
+    expireOnPaymentRetry: (): void => { expireOnRetry = true; }, challengePayment: (): void => { challenge = true; },
+    disconnectBeforeAdmission: (): void => { disconnected = true; }, restoreTransport: (): void => { disconnected = false; },
     stateFile: (): string => { assert.ok(stand !== null && stand.evidenceDirectory !== ""); return path.join(stand.evidenceDirectory, "developer.state"); },
     close: async (): Promise<void> => { if (stand !== null) await stand.shutdown(); if (backend !== null) await closeServer(backend); edge.closeAllConnections(); await new Promise<void>((resolve, reject): void => { edge.close((error): void => { if (error) reject(error); else resolve(); }); }); await access.close(); },
   };

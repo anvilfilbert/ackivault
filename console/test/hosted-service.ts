@@ -126,6 +126,11 @@ try {
     if (child === 0) await setTimeout(2);
   }
   assert.ok(child > 1, "Must pause an actual owned AVM child during an admitted native action");
+  const childLock = await readFile(`/proc/${child}/fdinfo/3`, "utf8");
+  assert.match(childLock, /FLOCK\s+ADVISORY\s+WRITE/, "Every native writer must inherit the actual locked file description");
+  assert.equal((await stat(`/proc/${child}/fd/3`)).ino, (await stat(path.join(state, "writer.lock"))).ino);
+  const contender = command("flock", ["--exclusive", path.join(state, "writer.lock"), process.execPath, "--input-type=module", "-e",
+    `import {readlinkSync} from "node:fs"; try { if(readlinkSync("/proc/${child}/exe")===${JSON.stringify(path.join(sdk, "bin/avm-local-stand"))}) process.exitCode=9; } catch(error) { if(error.code!=="ENOENT"&&error.code!=="ESRCH") throw error; }`], process.env);
   await accepted("sudo", ["systemctl", "kill", "--kill-whom=main", "--signal=KILL", unit]);
   const death = performance.now() + 15000; let exists = true;
   while (exists && performance.now() < death) {
@@ -133,6 +138,7 @@ try {
     catch (error) { if (!(error instanceof Error) || !("code" in error) || error.code !== "ESRCH") throw error; exists = false; }
   }
   assert.equal(exists, false, "Supervisor must reap the old child before a new writer starts"); await pending;
+  assert.equal((await contender).code, 0, "Contender may acquire only after the native writer exits");
   process.kill(sentinel.pid, 0); await stop();
   assert.deepEqual(await hashes(archive), saved);
   const allSaved = await hashes(state); const backup = path.join(root, "backup"); await cp(state, backup, { recursive: true, errorOnExist: true, force: false }); await chmod(backup, 0o700);

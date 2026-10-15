@@ -99,13 +99,18 @@ jobs:
           npm run test:hosted-native
           npx --no-install playwright install --with-deps chromium
           npm run test:browser
+      - name: Verify clean-source private package
+        if: ${{ !cancelled() }}
+        env:
+          ACKIVAULT_SDK_ROOT: ${{ github.workspace }}/.tools/release/avm-sdk-linux-x86_64
+        run: node console/dist/test/package-integrity.js "$PWD" .tools/private-package
       - name: Verify private native service lifecycle
+        if: ${{ !cancelled() }}
         env:
           ACKIVAULT_TEST_CA_DIR: ${{ github.workspace }}/.tools/console-test-ca
           NODE_EXTRA_CA_CERTS: ${{ github.workspace }}/.tools/console-test-ca/ca.pem
           ACKIVAULT_SDK_ROOT: ${{ github.workspace }}/.tools/release/avm-sdk-linux-x86_64
         run: |
-          bash scripts/package-private-console.sh "$PWD" .tools/private-package
           bash scripts/test-private-service.sh .tools/private-package .tools/release/avm-sdk-linux-x86_64 .stand/private-service
       - name: Upload stand diagnostics
         if: always()

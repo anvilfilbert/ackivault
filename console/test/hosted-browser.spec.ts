@@ -55,3 +55,28 @@ test("transport_retry_still_requires_recorded_reconciliation", async (): Promise
   expect(fixture.paymentSubmissions()).toBeGreaterThanOrEqual(1); expect(fixture.paymentSubmissions()).toBeLessThanOrEqual(2);
   await expect(page.getByTestId("hosted-outcome")).toContainText("recorded");
 });
+test("edge_auth_denial_after_payment_requires_reconciliation", async (): Promise<void> => {
+  await fund(); fixture.expireOnPaymentRetry(); await page.getByTestId("pay").click();
+  await expect(page.getByTestId("hosted-outcome")).toContainText("unknown"); await expect(page.getByTestId("pay")).toBeDisabled();
+  expect((await fixture.snapshot()).snapshot.delivery).toEqual({ received: "10", count: "1" });
+  await fixture.renewLogin(); await page.getByTestId("refresh").click();
+  await expect(page.getByTestId("hosted-outcome")).toContainText("recorded"); await expect(page.getByTestId("received")).toHaveText("10");
+  expect(fixture.paymentSubmissions()).toBe(1);
+});
+test("html_login_challenge_recovers_without_replaying_unadmitted_action", async (): Promise<void> => {
+  await fund(); const before = await fixture.snapshot(); const state = await readFile(fixture.stateFile());
+  fixture.challengePayment(); await page.getByTestId("pay").click();
+  await expect(page.getByTestId("error")).toContainText("Sign in"); await expect(page.getByTestId("pay")).toBeDisabled();
+  await fixture.renewLogin(); await page.getByTestId("refresh").click(); await expect(page.getByTestId("pay")).toBeEnabled();
+  await expect(page.getByTestId("hosted-outcome")).toContainText("not admitted");
+  expect((await fixture.snapshot()).revision).toBe(before.revision); expect(fixture.paymentSubmissions()).toBe(1);
+  expect(await readFile(fixture.stateFile())).toEqual(state);
+});
+test("pre_admission_connection_loss_recovers_without_resubmission", async (): Promise<void> => {
+  await fund(); const before = await fixture.snapshot(); fixture.disconnectBeforeAdmission(); await page.getByTestId("pay").click();
+  await expect(page.getByTestId("hosted-outcome")).toContainText("unknown"); await expect(page.getByTestId("pay")).toBeDisabled();
+  const sent = fixture.paymentSubmissions(); fixture.restoreTransport(); await page.getByTestId("refresh").click();
+  await expect(page.getByTestId("pay")).toBeEnabled(); await expect(page.getByTestId("hosted-outcome")).toContainText("not admitted");
+  expect((await fixture.snapshot()).revision).toBe(before.revision); expect(fixture.paymentSubmissions()).toBe(sent);
+  expect((await fixture.snapshot()).snapshot.delivery).toEqual({ received: "0", count: "0" });
+});
