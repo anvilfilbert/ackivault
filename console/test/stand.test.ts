@@ -20,6 +20,51 @@ function required(name: string): string {
   return path.resolve(value);
 }
 
+test("a human-paced journey retains execution funds for owner recovery near the one-hour boundary", async (context): Promise<void> => {
+  const startedAt = Date.now();
+  context.mock.timers.enable({ apis: ["Date"], now: startedAt });
+  const stand = new LocalStand(await nativeStandConfig({
+    sdkRoot: required("ACKIVAULT_SDK_ROOT"),
+    vaultArtifacts: required("ACKIVAULT_VAULT_ARTIFACTS"),
+    receiptArtifacts: required("ACKIVAULT_RECEIPT_ARTIFACTS"),
+    stateParent: required("ACKIVAULT_CONSOLE_STATE"),
+  }));
+  try {
+    const created = await stand.execute({ action: "create" });
+    assert.equal(created.vault?.cap, "1000");
+    context.mock.timers.setTime(startedAt + 30000);
+    await stand.execute({ action: "fund" });
+    context.mock.timers.setTime(startedAt + 60000);
+    const paid = await stand.execute({ action: "pay", amount: "10" });
+    assert.equal(paid.vault?.spent, "15");
+    assert.deepEqual(paid.delivery, { received: "10", count: "1" });
+    context.mock.timers.setTime(startedAt + 90000);
+    const capped = await stand.execute({ action: "pay", amount: "981" });
+    assert.equal(capped.activity.at(-2)?.statusCode, 1024);
+    assert.equal(capped.vault?.spent, "15");
+    assert.deepEqual(capped.delivery, { received: "10", count: "1" });
+    context.mock.timers.setTime(startedAt + 120000);
+    const revoked = await stand.execute({ action: "revoke" });
+    assert.equal(revoked.vault?.revoked, true);
+    context.mock.timers.setTime(startedAt + 150000);
+    const blocked = await stand.execute({ action: "pay", amount: "10" });
+    assert.equal(blocked.activity.at(-2)?.statusCode, 1018);
+    assert.equal(blocked.vault?.spent, "15");
+    assert.deepEqual(blocked.delivery, { received: "10", count: "1" });
+    context.mock.timers.setTime(startedAt + 3590000);
+    const recovered = await stand.execute({ action: "withdraw", amount: "7" });
+    assert.equal(recovered.activity.at(-3)?.action, "ackivault.withdraw");
+    assert.equal(recovered.activity.at(-3)?.statusCode, 0);
+    assert.equal(recovered.vault?.revoked, true);
+    assert.equal(recovered.vault?.spent, "15");
+    assert.deepEqual(recovered.delivery, { received: "17", count: "2" });
+    assert.equal(recovered.failure, null);
+    assert.ok(BigInt(recovered.balance!.shells) > BigInt(recovered.activity.at(-1)!.fee));
+    console.log(JSON.stringify({ event: "paced_native_journey_verified", secondsBeforeRecovery: 3590,
+      vaultFees: recovered.activity.filter((entry): boolean => entry.action.startsWith("ackivault.")).map((entry) => ({ action: entry.action, fee: entry.fee, time: entry.time })) }));
+  } finally { await stand.shutdown(); }
+});
+
 test("an internally rejected recipient cannot restore allowance or be reported as delivery", async (): Promise<void> => {
   const sdkRoot = required("ACKIVAULT_SDK_ROOT");
   const stateParent = required("ACKIVAULT_CONSOLE_STATE");
