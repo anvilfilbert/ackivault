@@ -1,12 +1,14 @@
-import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, stat } from "node:fs/promises";
+import { setTimeout } from "node:timers/promises";
 import path from "node:path";
 import { z } from "zod";
 import { actionSchema, amountValue, RequestError, snapshotSchema, type Action, type Activity, type Snapshot } from "./model.js";
 import { addressSchema, decodeCall, decodeInspection, decodeRecipient, decodeVault, hashSchema, receiptSchema, verifyDelivery, verifyFunding, type Call } from "./receipts.js";
+import { executionLimitsSchema, evidenceLimitsSchema, standPathsSchema, type StandPaths, type ExecutionLimits, type EvidenceLimits } from "./hosted-config.js";
+import { EvidenceJournal, provenanceSchema, type StandProvenance } from "./journal.js";
+import { runNativeCommand, type CommandResult } from "./operations.js";
 
-type Config = { sdkRoot: string; vaultArtifacts: string; receiptArtifacts: string; stateParent: string };
-type CommandResult = { code: number; stdout: string; stderr: string; file: string };
+export type StandConfig = { paths: StandPaths; execution: ExecutionLimits; evidence: EvidenceLimits; provenance: StandProvenance; runId: string; writerLockFd: 3 | null };
 type Session = { state: string; receiver: string; vault: string; agent: string };
 const DAPP = "11".repeat(32);
 const DEPOSIT = 0xe940cf114abdd07an;
@@ -34,32 +36,44 @@ function initArgs(agent: string, receiver: string, expiresAt: number): string {
 
 /** Owns one isolated local stand and its test identities. Signed mutations are never retried. */
 export class LocalStand {
-  private readonly config: Config;
+  private readonly config: StandConfig;
   private session: Session | null = null;
   private view: Snapshot = { source: { kind: "live", commit: null, runUrl: null }, vault: null, balance: null, delivery: { received: "0", count: "0" }, activity: [], availableActions: ["create"], failure: null };
   private busy = false;
   private counter = 0;
   private blockTime = 0;
   private directory = "";
+  private journal: EvidenceJournal | null = null;
+  private deadlineAtMs = 0;
+  private actionCommands = 0;
+  private closing = false;
 
-  constructor(config: Config) { this.config = { ...config }; }
+  constructor(config: StandConfig) {
+    this.config = { paths: standPathsSchema.parse(config.paths), execution: executionLimitsSchema.parse(config.execution),
+      evidence: evidenceLimitsSchema.parse(config.evidence), provenance: provenanceSchema.parse(config.provenance), runId: config.runId,
+      writerLockFd: z.literal(3).nullable().parse(config.writerLockFd) };
+  }
   get evidenceDirectory(): string { return this.directory; }
+  get runId(): string { return this.config.runId; }
   snapshot(): Snapshot { return snapshotSchema.parse(this.view); }
+  async shutdown(): Promise<void> { this.closing = true; while (this.busy) await setTimeout(25); }
 
   async execute(request: Action): Promise<Snapshot> {
     const action = actionSchema.parse(request);
     if (action.action === "pay" || action.action === "withdraw") amountValue(action.amount);
+    if (this.closing) throw new RequestError(409, "This stand is shutting down; no new signed actions are accepted");
     if (this.busy) throw new RequestError(409, "An AVM operation is already running; wait for its receipt");
     if (this.view.failure !== null) throw new RequestError(409, "Session halted after a stand failure; review saved receipts and start a fresh server");
     if (action.action === "create" && this.session !== null) throw new RequestError(409, "This console already owns a grant; start a fresh server for another isolated session");
     if (action.action !== "create" && this.session === null) throw new RequestError(409, "Create the local grant first");
     this.busy = true;
+    this.deadlineAtMs = performance.now() + this.config.execution.actionDeadlineMs;
+    this.actionCommands = 0;
     try {
       if (action.action === "create") await this.create();
       else await this.apply(action);
       return this.snapshot();
     } catch (error) {
-      if (error instanceof RequestError) throw error;
       if (!(error instanceof Error)) throw new TypeError("Stand failed with a non-Error value", { cause: error });
       this.view = { ...this.view, failure: error.message, availableActions: [] };
       throw error;
@@ -72,18 +86,10 @@ export class LocalStand {
   }
 
   private async command(command: string, args: string[]): Promise<CommandResult> {
-    const file = `${String(++this.counter).padStart(4, "0")}-${command}.json`;
-    const state = path.join(this.directory, "developer.state");
-    const argv = [command, "--state", state, "--wasmtime-profile", path.join(this.config.sdkRoot, "profiles/wasmtime-release-profile.v1"), ...args];
-    const result = await new Promise<CommandResult>((resolve, reject): void => {
-      execFile(path.join(this.config.sdkRoot, "bin/avm-local-stand"), argv, { encoding: "utf8", maxBuffer: 4 * 1024 * 1024 }, (error, stdout, stderr): void => {
-        if (error !== null && typeof error.code !== "number") { reject(error); return; }
-        resolve({ code: error === null ? 0 : Number(error.code), stdout, stderr, file });
-      });
-    });
-    await writeFile(path.join(this.directory, file), result.stdout, { encoding: "utf8", flag: "wx", mode: 0o600 });
-    if (result.stderr.length > 0) console.warn(JSON.stringify({ event: "stand_diagnostic", command, receipt: file, stderr: result.stderr }));
-    return result;
+    if (this.journal === null) throw new Error("Native command has no private evidence journal");
+    if (++this.actionCommands > 16) throw new Error("Native action exceeded its 16-command evidence budget");
+    return runNativeCommand({ command, args, directory: this.directory, sequence: ++this.counter, deadlineAtMs: this.deadlineAtMs, writerLockFd: this.config.writerLockFd },
+      this.config.paths, this.config.execution, this.journal);
   }
 
   private async accepted(command: string, args: string[]): Promise<CommandResult> {
@@ -111,16 +117,18 @@ export class LocalStand {
   }
 
   private async create(): Promise<void> {
-    for (const file of [path.join(this.config.sdkRoot, "bin/avm-local-stand"), path.join(this.config.sdkRoot, "profiles/wasmtime-release-profile.v1"), ...[this.config.vaultArtifacts, this.config.receiptArtifacts].flatMap((directory: string): string[] => ["contract.wasm", "contract.acab", "contract.descriptor"].map((name: string): string => path.join(directory, name)))]) {
+    for (const file of [path.join(this.config.paths.sdkRoot, "bin/avm-local-stand"), path.join(this.config.paths.sdkRoot, "profiles/wasmtime-release-profile.v1"), ...[this.config.paths.vaultArtifacts, this.config.paths.receiptArtifacts].flatMap((directory: string): string[] => ["contract.wasm", "contract.acab", "contract.descriptor"].map((name: string): string => path.join(directory, name)))]) {
       if (!(await stat(file)).isFile()) throw new RequestError(400, `Required local artifact is not a file: ${file}`);
     }
-    await mkdir(this.config.stateParent, { recursive: true });
-    this.directory = await mkdtemp(path.join(this.config.stateParent, "session-"));
+    await mkdir(this.config.paths.stateParent, { recursive: true, mode: 0o700 });
+    this.directory = await mkdtemp(path.join(this.config.paths.stateParent, "session-"));
+    this.journal = new EvidenceJournal(this.directory, this.config.evidence);
+    await this.journal.recordSession(this.config.runId, this.config.provenance);
     const initialized = await this.accepted("init", ["--dapp-id", DAPP]);
     const identities = z.object({ identities: z.object({ user: hashSchema, package_owner: hashSchema }) }).parse(JSON.parse(initialized.stdout));
-    const receiver = await this.deploy(this.config.receiptArtifacts, "7265636569766572", "null");
+    const receiver = await this.deploy(this.config.paths.receiptArtifacts, "7265636569766572", "null");
     const expiresAt = Math.floor(Date.now() / 1000) + 3600;
-    const vault = await this.deploy(this.config.vaultArtifacts, "7661756c74", initArgs(identities.identities.user, receiver, expiresAt));
+    const vault = await this.deploy(this.config.paths.vaultArtifacts, "7661756c74", initArgs(identities.identities.user, receiver, expiresAt));
     this.session = { state: path.join(this.directory, "developer.state"), receiver, vault, agent: identities.identities.user };
     this.view = { ...this.view, availableActions: ["fund", "pay", "revoke", "withdraw", "inspect"] };
     await this.inspect();

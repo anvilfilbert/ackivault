@@ -11,6 +11,7 @@ import { nativeCommand, nativeRecipientSnapshot, receiptLossSdk } from "./receip
 import { zeroReserveSdk } from "./zero-reserve.js";
 import { nativeExecutionCount, rejectedDeliverySdk } from "./rejected-delivery.js";
 import { decodeOutput } from "../src/acmo.js";
+import { nativeStandConfig } from "./stand-config.js";
 import { z } from "zod";
 
 function required(name: string): string {
@@ -24,12 +25,12 @@ test("an internally rejected recipient cannot restore allowance or be reported a
   const stateParent = required("ACKIVAULT_CONSOLE_STATE");
   await mkdir(stateParent, { recursive: true });
   const faults = await mkdtemp(path.join(stateParent, "rejected-delivery-"));
-  const stand = new LocalStand({
+  const stand = new LocalStand(await nativeStandConfig({
     sdkRoot: await rejectedDeliverySdk(sdkRoot, faults),
     vaultArtifacts: required("ACKIVAULT_VAULT_ARTIFACTS"),
     receiptArtifacts: required("ACKIVAULT_RECEIPT_ARTIFACTS"),
     stateParent,
-  });
+  }));
   const created = await stand.execute({ action: "create" });
   assert.equal(created.vault!.recipients[0]!.methodId, String(0x7a9236e99b7ae9ddn));
   const receiver = created.vault!.recipients[0]!.address;
@@ -86,12 +87,12 @@ test("a zero-budget native payment cannot alter a previously spent grant or sile
   const stateParent = required("ACKIVAULT_CONSOLE_STATE");
   await mkdir(stateParent, { recursive: true });
   const faults = await mkdtemp(path.join(stateParent, "zero-reserve-"));
-  const stand = new LocalStand({
+  const stand = new LocalStand(await nativeStandConfig({
     sdkRoot: await zeroReserveSdk(sdkRoot, faults),
     vaultArtifacts: required("ACKIVAULT_VAULT_ARTIFACTS"),
     receiptArtifacts: required("ACKIVAULT_RECEIPT_ARTIFACTS"),
     stateParent,
-  });
+  }));
   const created = await stand.execute({ action: "create" });
   const receiver = created.vault!.recipients[0]!.address;
   await stand.execute({ action: "fund" });
@@ -131,12 +132,12 @@ test("a real executed payment with a lost receipt halts the console without repe
   const stateParent = required("ACKIVAULT_CONSOLE_STATE");
   await mkdir(stateParent, { recursive: true });
   const faults = await mkdtemp(path.join(stateParent, "receipt-loss-"));
-  const stand = new LocalStand({
+  const stand = new LocalStand(await nativeStandConfig({
     sdkRoot: await receiptLossSdk(sdkRoot, faults),
     vaultArtifacts: required("ACKIVAULT_VAULT_ARTIFACTS"),
     receiptArtifacts: required("ACKIVAULT_RECEIPT_ARTIFACTS"),
     stateParent,
-  });
+  }));
   const created = await stand.execute({ action: "create" });
   const receiver = created.vault!.recipients[0]!.address;
   await stand.execute({ action: "fund" });
@@ -160,12 +161,12 @@ test("a real executed payment with a lost receipt halts the console without repe
 });
 
 test("native console transfers, enforces its grant and rejects unsafe requests", async (): Promise<void> => {
-  const stand = new LocalStand({
+  const stand = new LocalStand(await nativeStandConfig({
     sdkRoot: required("ACKIVAULT_SDK_ROOT"),
     vaultArtifacts: required("ACKIVAULT_VAULT_ARTIFACTS"),
     receiptArtifacts: required("ACKIVAULT_RECEIPT_ARTIFACTS"),
     stateParent: required("ACKIVAULT_CONSOLE_STATE"),
-  });
+  }));
   const server = createLiveServer(stand);
   const port = await listen(server, 0);
   const origin = `http://127.0.0.1:${port}`;

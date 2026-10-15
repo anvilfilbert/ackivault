@@ -16,11 +16,22 @@ function json(response: ServerResponse, status: number, data: Snapshot | { error
   response.end(JSON.stringify(data));
 }
 
+export function securityHeaders(response: ServerResponse): void {
+  response.setHeader("cache-control", "no-store");
+  response.setHeader("x-content-type-options", "nosniff");
+  response.setHeader("content-security-policy", "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+}
+
+export async function serveConsoleAsset(request: IncomingMessage, response: ServerResponse, browserScript: URL): Promise<void> {
+  const file = request.method === "GET" ? staticFiles.get(request.url ?? "") : undefined;
+  if (file === undefined) throw new RequestError(404, "Route is not available on this console");
+  const content = await readFile(request.url === "/app.js" ? browserScript : file.url);
+  response.writeHead(200, { "content-type": file.contentType }); response.end(content);
+}
+
 function serverWithRoutes(routes: Map<string, Handler>): Server {
   const server = createServer((request: IncomingMessage, response: ServerResponse): void => {
-    response.setHeader("cache-control", "no-store");
-    response.setHeader("x-content-type-options", "nosniff");
-    response.setHeader("content-security-policy", "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+    securityHeaders(response);
     async function serve(): Promise<void> {
       const address = server.address();
       if (address === null || typeof address === "string") throw new RequestError(500, "Server has no local TCP address");
@@ -29,11 +40,7 @@ function serverWithRoutes(routes: Map<string, Handler>): Server {
       if (request.method === "POST" && request.headers.origin !== `http://${host}`) throw new RequestError(403, "Mutation requests must come from this local console origin");
       const route = routes.get(`${request.method} ${request.url}`);
       if (route !== undefined) { await route(request, response); return; }
-      const file = request.method === "GET" ? staticFiles.get(request.url ?? "") : undefined;
-      if (file === undefined) throw new RequestError(404, "Route is not available on this console");
-      const content = await readFile(file.url);
-      response.writeHead(200, { "content-type": file.contentType });
-      response.end(content);
+      await serveConsoleAsset(request, response, new URL("../browser/app.js", import.meta.url));
     }
     void serve().catch((error: Error): void => {
       if (error instanceof RequestError) json(response, error.status, { error: error.message });
@@ -46,7 +53,7 @@ function serverWithRoutes(routes: Map<string, Handler>): Server {
   return server;
 }
 
-async function body(request: IncomingMessage): Promise<string> {
+export async function body(request: IncomingMessage): Promise<string> {
   if (request.headers["content-type"] !== "application/json") throw new RequestError(415, "Action requests require Content-Type: application/json");
   return new Promise<string>((resolve, reject): void => {
     let chunks: Buffer[] = [];

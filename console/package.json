@@ -4,14 +4,28 @@
   "license": "MIT",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22.18.0 <23" },
+  "engines": {
+    "node": ">=22.18.0 <23"
+  },
   "scripts": {
-    "build": "tsc && esbuild browser/app.ts --bundle --platform=browser --format=esm --outfile=dist/browser/app.js",
+    "build": "tsc && esbuild browser/app.ts browser/hosted.ts --bundle --platform=browser --format=esm --outdir=dist/browser",
     "test": "node --test dist/test/receipts.test.js dist/test/evidence.test.js dist/test/boundaries.test.js",
     "test:native": "node --test dist/test/stand.test.js",
+    "test:hosted": "node --test dist/test/hosted.test.js",
+    "test:hosted-native": "node --test dist/test/hosted-stand.test.js dist/test/hosted-native-http.test.js",
+    "test:browser": "playwright test",
+    "hosted": "node dist/src/hosted.js",
     "live": "node dist/src/live.js",
     "evidence": "node dist/src/evidence.js"
   },
-  "dependencies": { "zod": "4.6.6" },
-  "devDependencies": { "@types/node": "22.20.5", "typescript": "7.0.2", "esbuild": "0.28.2" }
+  "dependencies": {
+    "jose": "6.2.12",
+    "zod": "4.6.6"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/node": "22.20.5",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2"
+  }
 }

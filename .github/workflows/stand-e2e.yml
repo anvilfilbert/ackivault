@@ -12,6 +12,7 @@ permissions:
 jobs:
   stand-e2e:
     runs-on: ubuntu-24.04
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -76,6 +77,8 @@ jobs:
             contract/target/avm \
             tests/stand/receipt/target/avm \
             .stand/native
+      - name: Prepare ephemeral HTTPS authentication fixture
+        run: bash scripts/prepare-console-test-ca.sh .tools/console-test-ca
       - name: Verify console on native stand and recorded evidence
         working-directory: console
         env:
@@ -84,11 +87,31 @@ jobs:
           ACKIVAULT_VAULT_ARTIFACTS: ../contract/target/avm
           ACKIVAULT_RECEIPT_ARTIFACTS: ../tests/stand/receipt/target/avm
           ACKIVAULT_CONSOLE_STATE: ../.stand/console
+          ACKIVAULT_SOURCE_COMMIT: ${{ github.sha }}
+          ACKIVAULT_TEST_CA_DIR: ${{ github.workspace }}/.tools/console-test-ca
+          NODE_EXTRA_CA_CERTS: ${{ github.workspace }}/.tools/console-test-ca/ca.pem
         run: |
           npm ci
           npm run build
           npm test
           npm run test:native
+          npm run test:hosted
+          npm run test:hosted-native
+          npx --no-install playwright install --with-deps chromium
+          npm run test:browser
+      - name: Verify clean-source private package
+        if: ${{ !cancelled() }}
+        env:
+          ACKIVAULT_SDK_ROOT: ${{ github.workspace }}/.tools/release/avm-sdk-linux-x86_64
+        run: node console/dist/test/package-integrity.js "$PWD" .tools/private-package
+      - name: Verify private native service lifecycle
+        if: ${{ !cancelled() }}
+        env:
+          ACKIVAULT_TEST_CA_DIR: ${{ github.workspace }}/.tools/console-test-ca
+          NODE_EXTRA_CA_CERTS: ${{ github.workspace }}/.tools/console-test-ca/ca.pem
+          ACKIVAULT_SDK_ROOT: ${{ github.workspace }}/.tools/release/avm-sdk-linux-x86_64
+        run: |
+          bash scripts/test-private-service.sh .tools/private-package .tools/release/avm-sdk-linux-x86_64 .stand/private-service
       - name: Upload stand diagnostics
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -113,4 +136,9 @@ jobs:
             .stand/console/rejected-delivery-*/verified-vault.json
             .stand/console/rejected-delivery-*/verified-recipient.json
             .stand/console/rejected-delivery-*/execution-counts.json
+            .stand/console/hosted-expiry-*/session-*/*-call.json
+            .tools/hosted-desktop.png
+            .tools/hosted-mobile.png
+            .tools/private-package/release.json
+            .tools/private-package/FILES.sha256
           if-no-files-found: ignore

@@ -1,0 +1,39 @@
+[Unit]
+Description=AckiVault private test-only AVM console
+After=network.target
+
+[Service]
+Type=exec
+User=@USER@
+Group=@GROUP@
+EnvironmentFile=@ENV_FILE@
+Environment="PATH=@NODE_DIR@:/usr/bin:/bin"
+WorkingDirectory=@PACKAGE@
+ExecStartPre=/usr/bin/bash @PACKAGE@/scripts/verify-private-package.sh @PACKAGE@ @SDK@
+ExecStart=/usr/bin/flock --nonblock --no-fork @STATE@/writer.lock @NODE@ @PACKAGE@/console/dist/src/hosted.js
+UMask=0077
+Restart=no
+KillMode=control-group
+TimeoutStopSec=100
+SendSIGKILL=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=read-only
+ReadOnlyPaths=@PACKAGE@ @SDK@
+ReadWritePaths=@STATE@
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryMax=1G
+TasksMax=64
+CPUQuota=100%
+LimitNOFILE=256
+
+[Install]
+WantedBy=multi-user.target

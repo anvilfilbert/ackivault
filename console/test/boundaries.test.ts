@@ -7,6 +7,7 @@ import { decodeCall, ReceiptError } from "../src/receipts.js";
 import { LocalStand } from "../src/stand.js";
 import { createLiveServer, listen } from "../src/http.js";
 import { hostStatus } from "./http-request.js";
+import { unstartedStandConfig } from "./stand-config.js";
 
 const evidenceDirectory: string = process.env.ACKIVAULT_EVIDENCE_DIR ?? "";
 if (evidenceDirectory.length === 0) throw new Error("ACKIVAULT_EVIDENCE_DIR must point to native stand receipts");
@@ -60,7 +61,7 @@ test("receipt state mismatch and rejected-call events cannot masquerade as accep
 test("unsafe HTTP requests are rejected before starting a real local connector", async (): Promise<void> => {
   // No fake connector: these requests must be rejected before any filesystem/stand work.
   const unused = path.join(evidenceDirectory, "runtime-must-not-be-invoked");
-  const stand = new LocalStand({ sdkRoot: unused, vaultArtifacts: unused, receiptArtifacts: unused, stateParent: unused });
+  const stand = new LocalStand(unstartedStandConfig({ sdkRoot: unused, vaultArtifacts: unused, receiptArtifacts: unused, stateParent: unused }));
   const server = createLiveServer(stand);
   const port = await listen(server, 0);
   const origin = `http://127.0.0.1:${port}`;
