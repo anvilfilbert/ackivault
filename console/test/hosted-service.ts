@@ -98,6 +98,7 @@ try {
   assert.equal((await command("flock", ["--nonblock", "--no-fork", path.join(state, "writer.lock"), "true"], process.env)).code, 1);
   const bypass = await command(process.execPath, [path.join(pkg, "console/dist/src/hosted.js")], environment(pkg));
   assert.notEqual(bypass.code, 0, "Raw bootstrap must not bypass the OS writer lock");
+  assert.match(bypass.stderr, /writer lock/i, "Port collision alone does not establish lock enforcement");
   await action({ action: "create" }); await action({ action: "fund" });
   const paid = await action({ action: "pay", amount: "10" }); assert.deepEqual(paid.snapshot.delivery, { received: "10", count: "1" });
   const session = (await readdir(state)).filter((name: string): boolean => name.startsWith("session-")); assert.equal(session.length, 1);

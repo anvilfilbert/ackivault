@@ -5,8 +5,11 @@ import { createHostedServer } from "./hosted-http.js";
 import { listen } from "./http.js";
 import { loadStandProvenance } from "./journal.js";
 import { LocalStand } from "./stand.js";
+import { requireWriterLock } from "./service-lock.js";
 
 const config = loadHostedConfig(process.env);
+process.umask(0o077);
+await requireWriterLock(config.paths.stateParent);
 const provenance = await loadStandProvenance(config.releaseManifest, config.paths);
 const runId = randomUUID();
 const stand = new LocalStand({ paths: config.paths, execution: config.execution, evidence: config.evidence, provenance, runId });
