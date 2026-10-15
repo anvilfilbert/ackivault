@@ -8,7 +8,7 @@
     "node": ">=22.18.0 <23"
   },
   "scripts": {
-    "build": "tsc && esbuild browser/app.ts --bundle --platform=browser --format=esm --outfile=dist/browser/app.js",
+    "build": "tsc && esbuild browser/app.ts browser/hosted.ts --bundle --platform=browser --format=esm --outdir=dist/browser",
     "test": "node --test dist/test/receipts.test.js dist/test/evidence.test.js dist/test/boundaries.test.js",
     "test:native": "node --test dist/test/stand.test.js",
     "test:hosted": "node --test dist/test/hosted.test.js",
