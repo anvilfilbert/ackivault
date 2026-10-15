@@ -7,7 +7,9 @@ import type { StandConfig } from "../src/stand.js";
 
 /** Deliberately unusable paths for tests that must never initialize or execute a stand. */
 export function unstartedStandConfig(paths: StandPaths): StandConfig {
-  return { paths, runId: randomUUID(), execution: { actionDeadlineMs: 60000, terminationGraceMs: 2000, maxOutputBytes: 4194304 },
+  return { paths: { sdkRoot: path.resolve(paths.sdkRoot), vaultArtifacts: path.resolve(paths.vaultArtifacts),
+    receiptArtifacts: path.resolve(paths.receiptArtifacts), stateParent: path.resolve(paths.stateParent) },
+    runId: randomUUID(), execution: { actionDeadlineMs: 60000, terminationGraceMs: 2000, maxOutputBytes: 4194304 },
     evidence: { maxBytes: 1073741824, minFreeBytes: 1048576 }, provenance: {
       applicationCommit: "0".repeat(40), sdkCommit: "0748f4f0767a26da8bc363bcb6b5585539d6970e",
       runtimeCommit: "06e96ef71006cca020575cbf35e6b82cc82a324e", profileSha256: "eafd9ee1589b24c8fba8f5212c0571bd796bfc127aeae0edfb5697bd477b39d8",
