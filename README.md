@@ -18,6 +18,22 @@ This is an open-source learning and reference example for AVM contract authors a
 
 **Status: active development and security testing ongoing.** This is a working local AVM demonstration, not an independently audited or network-deployed wallet. Deeper adversarial testing is in progress; passing tests are not approval for real funds. Neither console entrypoint connects to Shellnet or Mainnet. No real keys, funded network accounts or network deployment configuration belong in this repository. Do not deposit real funds.
 
+## The bigger idea: several sellers, one API
+
+Buying access to several AI models should not mean maintaining a separate application connection for every seller. The future integration concept is **one API address for an IDE or agent, with multiple purchased inference streams behind it**:
+
+```text
+Seller A / purchased model stream A ─┐
+Seller B / purchased model stream B ─┼─ AckiVault routing API ─ IDE or agent
+Seller C / purchased model stream C ─┘       selected per request
+```
+
+The user would connect their tool once, then choose the model or purchased stream through a request parameter or interface option. A request for stream A goes to its approved connection; a later request for stream B uses the same API address but a different connection. Responses remain separate—this does not blend models, merge answers or silently substitute another seller.
+
+The intended benefit is less connection management: one place to see purchased capacity, usage, spending limits and connection status instead of juggling several seller endpoints. Sellers could reach buyers through the tools they already use. DEX.DO would remain the marketplace for model access, matching and settlement; AckiVault would be the convenience and control layer around it, not a second exchange.
+
+**This routing API is a future concept, not implemented functionality or an active customer-service launch.** Today's repository demonstrates bounded spending and receipt verification only. The experimental AVM vault is not a verified replacement for DEX.DO's own wallet, escrow or PrivateNote flow. Signing/delegation, purchased-access handling, privacy and upstream compatibility must be proven before an integration can be claimed. A controlled IDE test with one or two streams comes after the current console milestone; it does not authorize real-fund purchases or promise a launch date.
+
 ## Start reviewing
 
 - [Verification guide](docs/verification.md): reproduce the journey and inspect its receipts.

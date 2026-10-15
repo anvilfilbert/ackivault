@@ -2,7 +2,7 @@
 
 ## Status and purpose
 
-Written specification for review. The conversational design is approved; this document is not yet approved for implementation. Nothing in this specification authorizes server access, account configuration, DNS changes, installation or deployment.
+Approved written specification for implementation planning. Product implementation still requires review of the written plan and selection of its execution method. Nothing in this specification authorizes server access, account configuration, DNS changes, installation or deployment.
 
 Make the existing AckiVault AVM demonstration available to one permitted person through a private browser console. Success means exercising the existing test grant remotely, with authenticated access, bounded native processes, honest results and retained evidence. It does not mean operating a customer service or connecting to a live blockchain.
 
