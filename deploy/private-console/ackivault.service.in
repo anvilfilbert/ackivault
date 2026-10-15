@@ -7,6 +7,7 @@ Type=exec
 User=@USER@
 Group=@GROUP@
 EnvironmentFile=@ENV_FILE@
+Environment="PATH=@NODE_DIR@:/usr/bin:/bin"
 WorkingDirectory=@PACKAGE@
 ExecStartPre=/usr/bin/bash @PACKAGE@/scripts/verify-private-package.sh @PACKAGE@ @SDK@
 ExecStart=/usr/bin/flock --nonblock --no-fork @STATE@/writer.lock @NODE@ @PACKAGE@/console/dist/src/hosted.js

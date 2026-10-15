@@ -57,7 +57,7 @@ async function installUnit(packageDirectory: string): Promise<void> {
   const env = environment(packageDirectory);
   await writeFile(envFile, Object.entries(env).map(([key, value]): string => `${key}=${JSON.stringify(value)}`).join("\n"), { mode: 0o600 });
   const values = new Map<string, string>([["USER", String(process.getuid!())], ["GROUP", String(process.getgid!())],
-    ["PACKAGE", packageDirectory], ["SDK", sdk], ["STATE", state], ["ENV_FILE", envFile], ["NODE", process.execPath]]);
+    ["PACKAGE", packageDirectory], ["SDK", sdk], ["STATE", state], ["ENV_FILE", envFile], ["NODE", process.execPath], ["NODE_DIR", path.dirname(process.execPath)]]);
   const template = await readFile(path.join(pkg, "deploy/ackivault.service.in"), "utf8");
   const rendered = template.replace(/@([A-Z_]+)@/g, (_match: string, key: string): string => {
     const value = values.get(key); assert.ok(value && /^[a-zA-Z0-9/_.-]+$/.test(value), `Invalid unit substitution: ${key}`); return value;
@@ -106,6 +106,8 @@ try {
   for (const name of await readdir(archive)) assert.equal((await stat(path.join(archive, name))).mode & 0o077, 0);
   const processId = await mainPid(); assert.ok(processId > 1);
   const status = await readFile(`/proc/${processId}/status`, "utf8"); assert.match(status, new RegExp(`Uid:\\s+${process.getuid!()}\\s`));
+  const writeCode = await command("sudo", ["nsenter", "--target", String(processId), "--mount", "--setuid", String(process.getuid!()), "--setgid", String(process.getgid!()), "touch", path.join(pkg, "forbidden-write")], process.env);
+  assert.notEqual(writeCode.code, 0); assert.match(writeCode.stderr, /Read-only file system/);
   const limits = await accepted("systemctl", ["show", unit, "-p", "MemoryMax", "-p", "TasksMax", "-p", "CPUQuotaPerSecUSec", "-p", "KillMode", "-p", "Restart"]);
   assert.match(limits, /MemoryMax=1073741824/); assert.match(limits, /TasksMax=64/); assert.match(limits, /CPUQuotaPerSecUSec=1s/);
   assert.match(limits, /KillMode=control-group/); assert.match(limits, /Restart=no/);
