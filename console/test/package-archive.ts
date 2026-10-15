@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmod, cp, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { chmod, cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const [packageInput, outputInput] = process.argv.slice(2);
@@ -47,9 +47,16 @@ try {
     await writeFile(inventory, `${await readFile(inventory, "utf8")}${createHash("sha256").update(bytes).digest("hex")}  ./${name}\n`);
     await assert.rejects(archive(contaminated, path.join(temporary, `output-${name}`)), /Package member is not approved for publication/);
   }
+  for (const [index, name] of [".PRIVATE_DIRECTORY_SENTINEL", "console/.PRIVATE_DIRECTORY_SENTINEL"].entries()) {
+    const contaminated = path.join(temporary, `directory-${index}`);
+    await cp(pkg, contaminated, { recursive: true });
+    await chmod(path.dirname(path.join(contaminated, name)), 0o700);
+    await mkdir(path.join(contaminated, name), { mode: 0o700 });
+    await assert.rejects(archive(contaminated, path.join(temporary, `output-directory-${index}`)), /Package directory is not approved for publication/);
+  }
 } finally {
   await writableDirectories(temporary);
   await rm(temporary, { recursive: true });
 }
 console.log(JSON.stringify({ event: "application_archive_acceptance", checksumVerified: true,
-  roundtripInventoryExact: true, privateConfigurationRejected: true, hostToolRejected: true }));
+  roundtripInventoryExact: true, privateConfigurationRejected: true, hostToolRejected: true, unlistedDirectoriesRejected: true }));
