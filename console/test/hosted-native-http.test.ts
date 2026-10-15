@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout } from "node:timers/promises";
 import test from "node:test";
+import { z } from "zod";
 import { AccessVerifier } from "../src/access.js";
 import { createHostedServer } from "../src/hosted-http.js";
 import { hostedSnapshotSchema, type HostedSnapshot } from "../src/hosted-model.js";
@@ -75,6 +76,8 @@ test("one_admitted_action_consumes_one_revision and lost_response_does_not_allow
     const inspected = await nativeCommand(paths.sdkRoot, ["inspect", ...args]);
     const replayed = await nativeCommand(paths.sdkRoot, ["replay", ...args]);
     assert.equal(inspected.code, 0); assert.equal(replayed.code, 0);
-    assert.deepEqual(JSON.parse(replayed.stdout), JSON.parse(inspected.stdout));
+    const journal = z.object({ status: z.literal("ok"), account_state_root: z.string().regex(/^[0-9a-f]{64}$/),
+      registry_root: z.string().regex(/^[0-9a-f]{64}$/), cumulative_fee_shells: z.string().regex(/^[0-9]+$/), accepted_input_count: z.number().int().positive() });
+    assert.deepEqual(journal.parse(JSON.parse(replayed.stdout)), journal.parse(JSON.parse(inspected.stdout)));
   } finally { await stand.shutdown(); await closeServer(server); await fixture.close(); }
 });
