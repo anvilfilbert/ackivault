@@ -16,7 +16,8 @@ type Observed = { code: number | null; signal: NodeJS.Signals | null; stdout: st
 
 /** Wait for owned-child exit before returning, including deadline and output-limit termination. */
 export async function runNativeCommand(invocation: NativeInvocation, paths: StandPaths, limits: ExecutionLimits, journal: EvidenceJournal): Promise<CommandResult> {
-  await journal.checkCapacity(limits.maxOutputBytes * 2 + 8192);
+  // UTF-8 replacement can triple stdout bytes; JSON escaping can sextuple stderr bytes.
+  await journal.checkCapacity(limits.maxOutputBytes * 9 + 8192);
   await journal.recordIntent(invocation.sequence, invocation.command);
   const remaining = Math.ceil(invocation.deadlineAtMs - performance.now());
   if (remaining <= 0) throw new NativeOperationError("ACTION_TIMEOUT", invocation.command, null);
