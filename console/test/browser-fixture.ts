@@ -22,7 +22,7 @@ export async function testCertificatePin(): Promise<string> {
 }
 export type BrowserFixture = {
   origin: string; snapshot: () => Promise<HostedSnapshot>; restart: () => Promise<void>;
-  expireLogin: () => Promise<void>; renewLogin: () => Promise<void>; losePaymentResponse: () => void;
+  expireLogin: () => Promise<void>; renewLogin: () => Promise<void>; losePaymentResponse: () => void; losePaymentConnection: () => void;
   paymentSubmissions: () => number; stateFile: () => string; close: () => Promise<void>;
 };
 
@@ -36,6 +36,7 @@ export async function startBrowserFixture(): Promise<BrowserFixture> {
   let port = 0;
   let submissions = 0;
   let lose = false;
+  let loseConnection = false;
   const edge = createServer({ key: await readFile(path.join(ca, "server.key")), cert: await readFile(access.caFile) }, (incoming, outgoing): void => {
     async function forward(): Promise<void> {
       const chunks: Buffer[] = [];
@@ -44,13 +45,17 @@ export async function startBrowserFixture(): Promise<BrowserFixture> {
       const payment = incoming.method === "POST" && body.toString("utf8").includes('"action":"pay"');
       if (payment) submissions++;
       const drop = payment && lose; if (drop) lose = false;
+      const disconnect = payment && loseConnection; if (disconnect) loseConnection = false;
       await new Promise<void>((resolve, reject): void => {
         const call = request({ hostname: "127.0.0.1", port, path: incoming.url, method: incoming.method,
           headers: { host: incoming.headers.host!, "cf-access-jwt-assertion": token,
             ...(incoming.headers.origin === undefined ? {} : { origin: incoming.headers.origin }),
             ...(incoming.headers["content-type"] === undefined ? {} : { "content-type": incoming.headers["content-type"] }) } }, (result): void => {
           result.on("error", reject);
-          if (drop) { result.resume(); result.on("end", (): void => { outgoing.destroy(); resolve(); }); }
+          if (drop || disconnect) { result.resume(); result.on("end", (): void => {
+            if (drop) { outgoing.writeHead(200, { "content-type": "application/json" }); outgoing.write('{"'); }
+            setImmediate((): void => { outgoing.destroy(); resolve(); });
+          }); }
           else { outgoing.writeHead(result.statusCode!, result.headers); result.pipe(outgoing); result.on("end", resolve); }
         });
         call.on("error", reject); call.end(body);
@@ -84,6 +89,7 @@ export async function startBrowserFixture(): Promise<BrowserFixture> {
     expireLogin: async (): Promise<void> => { token = await access.sign({ ...userClaims(access), exp: Math.floor(Date.now() / 1000) - 1 }, "first"); },
     renewLogin: async (): Promise<void> => { token = await access.sign(userClaims(access), "first"); },
     losePaymentResponse: (): void => { lose = true; }, paymentSubmissions: (): number => submissions,
+    losePaymentConnection: (): void => { loseConnection = true; },
     stateFile: (): string => { assert.ok(stand !== null && stand.evidenceDirectory !== ""); return path.join(stand.evidenceDirectory, "developer.state"); },
     close: async (): Promise<void> => { if (stand !== null) await stand.shutdown(); if (backend !== null) await closeServer(backend); edge.closeAllConnections(); await new Promise<void>((resolve, reject): void => { edge.close((error): void => { if (error) reject(error); else resolve(); }); }); await access.close(); },
   };

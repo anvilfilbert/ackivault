@@ -74,10 +74,12 @@ async function execute(action: Action): Promise<void> {
   } catch (error) {
     if (!(error instanceof ResponseFailure)) throw error;
     locked = true;
-    if (error.fault?.outcome === "not-started") pending = null;
+    // A transport may retry a POST itself; a stale revision can describe its second submission.
+    const notStarted = error.fault?.outcome === "not-started" && error.fault.code !== "STALE_REVISION";
+    if (notStarted) pending = null;
     if (error.fault?.code === "STALE_RUN") changedRun = true;
     showError(error.message);
-    text("hosted-outcome", error.fault?.outcome === "not-started" ? "This request was not admitted. Sign in if needed, then refresh; nothing will be resent." : "Action result unknown. Do not repeat it. Refresh only the recorded view.");
+    text("hosted-outcome", notStarted ? "This request was not admitted. Sign in if needed, then refresh; nothing will be resent." : "Action result unknown. Do not repeat it. Refresh only the recorded view.");
   } finally {
     requesting = false; element("refresh", HTMLButtonElement).disabled = false;
     if (current !== null) display(current);

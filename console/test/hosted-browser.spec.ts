@@ -45,3 +45,11 @@ test("expired_login_never_replays_action", async (): Promise<void> => {
   await fixture.renewLogin(); await page.getByTestId("refresh").click(); await expect(page.getByTestId("pay")).toBeEnabled();
   expect(fixture.paymentSubmissions()).toBe(1); expect((await fixture.snapshot()).snapshot.delivery).toEqual({ received: "0", count: "0" });
 });
+test("transport_retry_still_requires_recorded_reconciliation", async (): Promise<void> => {
+  await fund(); fixture.losePaymentConnection(); await page.getByTestId("pay").click();
+  await expect(page.getByTestId("hosted-outcome")).toContainText("unknown"); await expect(page.getByTestId("pay")).toBeDisabled();
+  await page.getByTestId("refresh").click(); await expect(page.getByTestId("received")).toHaveText("10");
+  expect((await fixture.snapshot()).snapshot.delivery).toEqual({ received: "10", count: "1" });
+  expect(fixture.paymentSubmissions()).toBeGreaterThanOrEqual(1); expect(fixture.paymentSubmissions()).toBeLessThanOrEqual(2);
+  await expect(page.getByTestId("hosted-outcome")).toContainText("recorded");
+});
