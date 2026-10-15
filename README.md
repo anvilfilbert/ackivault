@@ -16,7 +16,7 @@ The [local web console](console/README.md) exposes the test flow: create, fund, 
 
 This is an open-source learning and reference example for AVM contract authors and agent developers, not a hosted custody service or a DEX.DO connector. Use the source, tests and receipts to explore bounded spending and failure handling; the example does not purchase inference or manage a customer's network wallet.
 
-**Status: active development and security testing ongoing.** This is a working local AVM demonstration, not an independently audited or network-deployed wallet. Deeper adversarial testing is in progress; passing tests are not approval for real funds. Neither console entrypoint connects to Shellnet or Mainnet. No real keys, funded network accounts or network deployment configuration belong in this repository. Do not deposit real funds.
+**Status: active development and security testing ongoing.** The local AVM demonstration and separate authenticated private-console laboratory have passed their bounded Linux CI checks; see the [verification scope](docs/verification.md#private-console-qualification). They are not independently audited or network-deployed wallets. Deeper adversarial testing is in progress; passing tests are not approval for real funds. No console entrypoint connects to Shellnet or Mainnet. No real keys, funded network accounts or network deployment configuration belong in this repository. Do not deposit real funds.
 
 ## The bigger idea: several sellers, one API
 
