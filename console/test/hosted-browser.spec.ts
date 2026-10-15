@@ -20,7 +20,9 @@ test("refresh_keeps_running_grant", async (): Promise<void> => {
   await page.reload(); await expect(page.getByTestId("hosted-run")).toHaveText(before.runId);
   await page.getByTestId("refresh").click(); await expect(page.getByTestId("pay")).toBeEnabled();
   expect((await fixture.snapshot()).revision).toBe(2); expect(await readFile(fixture.stateFile())).toEqual(state);
+  await page.setViewportSize({ width: 1440, height: 1100 }); await page.screenshot({ path: "../.tools/hosted-desktop.png", fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: "../.tools/hosted-mobile.png", fullPage: true });
   expect(await page.evaluate((): boolean => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.getByTestId("pay-amount").focus(); await page.keyboard.press("Tab"); await expect(page.getByTestId("pay")).toBeFocused();
 });

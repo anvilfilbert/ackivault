@@ -132,4 +132,8 @@ jobs:
             .stand/console/rejected-delivery-*/verified-recipient.json
             .stand/console/rejected-delivery-*/execution-counts.json
             .stand/console/hosted-expiry-*/session-*/*-call.json
+            .tools/hosted-desktop.png
+            .tools/hosted-mobile.png
+            .tools/private-package/release.json
+            .tools/private-package/FILES.sha256
           if-no-files-found: ignore
