@@ -23,8 +23,10 @@ function required(name: string): string {
 }
 
 test("one_admitted_action_consumes_one_revision and lost_response_does_not_allow_resubmission", async (): Promise<void> => {
+  const parent = required("ACKIVAULT_CONSOLE_STATE"); await mkdir(parent, { recursive: true, mode: 0o700 });
+  const directory = await mkdtemp(path.join(parent, "hosted-http-"));
   const paths = { sdkRoot: required("ACKIVAULT_SDK_ROOT"), vaultArtifacts: required("ACKIVAULT_VAULT_ARTIFACTS"),
-    receiptArtifacts: required("ACKIVAULT_RECEIPT_ARTIFACTS"), stateParent: required("ACKIVAULT_CONSOLE_STATE") };
+    receiptArtifacts: required("ACKIVAULT_RECEIPT_ARTIFACTS"), stateParent: directory };
   const stand = new LocalStand({ ...await nativeStandConfig(paths), runId: "native-http-run" });
   const fixture = await startAccessFixture(required("ACKIVAULT_TEST_CA_DIR"));
   const config = testHostedConfig(fixture, paths);
@@ -103,7 +105,7 @@ test("an expired grant rejects hosted payment without spending allowance or deli
         // Isolate expiry from the separate storage-rent precheck after a two-hour clock advance.
         const gas = await nativeCommand(required("ACKIVAULT_SDK_ROOT"), ["fund-user", "--state", path.join(stand.evidenceDirectory, "developer.state"),
           "--wasmtime-profile", path.join(paths.sdkRoot, "profiles/wasmtime-release-profile.v1"), "--address", snapshot.snapshot.vault!.address, "--shells", "1000000000"]);
-        assert.equal(gas.code, 0, gas.stderr);
+        assert.equal(gas.code, 0, `Native expiry funding: ${gas.stdout}; ${gas.stderr}`);
         await writeFile(path.join(directory, "expiry-gas-topup.json"), gas.stdout, { flag: "wx", mode: 0o600 });
       }
       if (action.action === "pay") {
