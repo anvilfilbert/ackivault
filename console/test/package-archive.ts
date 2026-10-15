@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmod, cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, cp, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const [packageInput, outputInput] = process.argv.slice(2);
@@ -17,6 +17,13 @@ async function archive(directory: string, destination: string): Promise<void> {
         resolve();
       });
   });
+}
+
+async function writableDirectories(directory: string): Promise<void> {
+  await chmod(directory, 0o700);
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    if (entry.isDirectory()) await writableDirectories(path.join(directory, entry.name));
+  }
 }
 
 // Removing archive creation or adding an extra package member must break this real roundtrip.
@@ -41,7 +48,7 @@ try {
     await assert.rejects(archive(contaminated, path.join(temporary, `output-${name}`)), /Package member is not approved for publication/);
   }
 } finally {
-  await chmod(temporary, 0o700);
+  await writableDirectories(temporary);
   await rm(temporary, { recursive: true });
 }
 console.log(JSON.stringify({ event: "application_archive_acceptance", checksumVerified: true,

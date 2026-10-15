@@ -19,7 +19,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '22'
+          node-version: '22.23.3'
           package-manager-cache: false
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.93.0 --profile minimal --component clippy --component rustfmt --target wasm32-unknown-unknown
@@ -112,7 +112,16 @@ jobs:
           ACKIVAULT_SDK_ROOT: ${{ github.workspace }}/.tools/release/avm-sdk-linux-x86_64
         run: |
           node console/dist/test/package-archive.js .tools/private-package .tools/application-release
-          bash scripts/test-private-service.sh .tools/private-package .tools/release/avm-sdk-linux-x86_64 .stand/private-service
+          bash scripts/test-private-service.sh .tools/application-release/verified-package .tools/release/avm-sdk-linux-x86_64 .stand/private-service
+      - name: Retain verified application archive
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: application-package-${{ github.sha }}
+          path: |
+            .tools/application-release/ackivault-application.tar.gz
+            .tools/application-release/ackivault-application.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 7
       - name: Upload stand diagnostics
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
