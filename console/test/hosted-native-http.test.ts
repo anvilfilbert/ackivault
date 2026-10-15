@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { request, type IncomingMessage } from "node:http";
-import { readFile } from "node:fs/promises";
+import { readFile, mkdir, mkdtemp } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout } from "node:timers/promises";
 import test from "node:test";
@@ -16,6 +16,7 @@ import { closeServer, hostedRequest } from "./hosted-client.js";
 import { nativeStandConfig } from "./stand-config.js";
 import { decodeCall, decodeRecipient } from "../src/receipts.js";
 import { nativeCommand, nativeRecipientSnapshot } from "./receipt-loss.js";
+import { expiredGrantSdk } from "./expired-grant.js";
 
 function required(name: string): string {
   const value = process.env[name]; assert.ok(value, `${name} is required for native hosted tests`); return path.resolve(value);
@@ -79,5 +80,30 @@ test("one_admitted_action_consumes_one_revision and lost_response_does_not_allow
     const journal = z.object({ status: z.literal("ok"), account_state_root: z.string().regex(/^[0-9a-f]{64}$/),
       registry_root: z.string().regex(/^[0-9a-f]{64}$/), cumulative_fee_shells: z.string().regex(/^[0-9]+$/), accepted_input_count: z.number().int().positive() });
     assert.deepEqual(journal.parse(JSON.parse(replayed.stdout)), journal.parse(JSON.parse(inspected.stdout)));
+  } finally { await stand.shutdown(); await closeServer(server); await fixture.close(); }
+});
+
+test("an expired grant rejects hosted payment without spending allowance or delivering value", async (): Promise<void> => {
+  const parent = required("ACKIVAULT_CONSOLE_STATE"); await mkdir(parent, { recursive: true, mode: 0o700 });
+  const directory = await mkdtemp(path.join(parent, "hosted-expiry-"));
+  const paths = { sdkRoot: await expiredGrantSdk(required("ACKIVAULT_SDK_ROOT"), directory), vaultArtifacts: required("ACKIVAULT_VAULT_ARTIFACTS"),
+    receiptArtifacts: required("ACKIVAULT_RECEIPT_ARTIFACTS"), stateParent: directory };
+  const stand = new LocalStand({ ...await nativeStandConfig(paths), runId: "expired-native-run" });
+  const fixture = await startAccessFixture(required("ACKIVAULT_TEST_CA_DIR"));
+  const config = testHostedConfig(fixture, paths);
+  const server = createHostedServer(stand, config, new AccessVerifier(config.access), "expired-native-run");
+  const port = await listen(server, 0); const token = await fixture.sign(userClaims(fixture), "first");
+  try {
+    let revision = 0;
+    for (const action of [{ action: "create" }, { action: "fund" }, { action: "pay", amount: "10" }] as const) {
+      const response = await hostedRequest(port, token, config.origin, "POST", JSON.stringify({ runId: "expired-native-run", revision, action }));
+      assert.equal(response.status, 200, response.text);
+      const snapshot = hostedSnapshotSchema.parse(JSON.parse(response.text)); revision = snapshot.revision;
+      if (action.action === "pay") {
+        assert.equal(snapshot.snapshot.vault!.spent, "0");
+        assert.ok(snapshot.snapshot.activity.some((entry: Activity): boolean => entry.action === "ackivault.pay" && entry.statusCode === 1017));
+        assert.deepEqual(snapshot.snapshot.delivery, { received: "0", count: "0" });
+      }
+    }
   } finally { await stand.shutdown(); await closeServer(server); await fixture.close(); }
 });
