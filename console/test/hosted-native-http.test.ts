@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { request, type IncomingMessage } from "node:http";
-import { readFile, mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { readFile, mkdir, mkdtemp } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout } from "node:timers/promises";
 import test from "node:test";
@@ -101,13 +101,6 @@ test("an expired grant rejects hosted payment without spending allowance or deli
       const response = await hostedRequest(port, token, config.origin, "POST", JSON.stringify({ runId: "expired-native-run", revision, action }));
       assert.equal(response.status, 200, response.text);
       const snapshot = hostedSnapshotSchema.parse(JSON.parse(response.text)); revision = snapshot.revision;
-      if (action.action === "fund") {
-        // Isolate expiry from the separate storage-rent precheck after a two-hour clock advance.
-        const gas = await nativeCommand(required("ACKIVAULT_SDK_ROOT"), ["fund-user", "--state", path.join(stand.evidenceDirectory, "developer.state"),
-          "--wasmtime-profile", path.join(paths.sdkRoot, "profiles/wasmtime-release-profile.v1"), "--address", snapshot.snapshot.vault!.address, "--shells", "1000000000"]);
-        assert.equal(gas.code, 0, `Native expiry funding: ${gas.stdout}; ${gas.stderr}`);
-        await writeFile(path.join(directory, "expiry-gas-topup.json"), gas.stdout, { flag: "wx", mode: 0o600 });
-      }
       if (action.action === "pay") {
         assert.equal(snapshot.snapshot.vault!.spent, "0");
         assert.ok(snapshot.snapshot.activity.some((entry: Activity): boolean => entry.action === "ackivault.pay" && entry.statusCode === 1017));

@@ -1,7 +1,7 @@
 import { mkdir, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-/** Shift signed local-stand timestamps only when payment begins; do not change contract output. */
+/** Fund the expiry fixture before deployment, then shift signed time; never change contract output. */
 export async function expiredGrantSdk(sdkRoot: string, directory: string): Promise<string> {
   const proxy = path.join(directory, "expiry-sdk");
   await mkdir(path.join(proxy, "bin"), { recursive: true });
@@ -10,6 +10,7 @@ export async function expiredGrantSdk(sdkRoot: string, directory: string): Promi
 const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const args = process.argv.slice(2);
+if (args[0] === "fund-user") args[args.indexOf("--shells") + 1] = "1000000000";
 const marker = ${JSON.stringify(path.join(directory, "expiry-clock"))};
 const payment = args[0] === "call" && args[args.indexOf("--method") + 1] === "ackivault.pay";
 if (payment && !fs.existsSync(marker)) fs.writeFileSync(marker, "local test clock advanced", { flag: "wx", mode: 0o600 });
