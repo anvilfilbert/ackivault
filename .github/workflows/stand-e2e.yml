@@ -120,4 +120,5 @@ jobs:
             .stand/console/rejected-delivery-*/verified-vault.json
             .stand/console/rejected-delivery-*/verified-recipient.json
             .stand/console/rejected-delivery-*/execution-counts.json
+            .stand/console/hosted-expiry-*/session-*/*-call.json
           if-no-files-found: ignore
