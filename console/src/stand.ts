@@ -110,7 +110,7 @@ export class LocalStand {
     const quote = await this.command("deploy", argv);
     if (quote.code !== 2) throw new StandCommandError("deploy funding quote", quote);
     const funding = z.object({ error: z.literal("funding_required"), address: addressSchema }).parse(JSON.parse(quote.stdout));
-    await this.accepted("fund-user", ["--address", funding.address, "--shells", "100000"]);
+    await this.accepted("fund-user", ["--address", funding.address, "--shells", "10000000"]);
     const deployed = await this.accepted("deploy", argv);
     receiptSchema.parse(z.object({ receipt: receiptSchema }).parse(JSON.parse(deployed.stdout)).receipt);
     return funding.address;

@@ -19,7 +19,7 @@ npm run live -- \
   ../.stand/console 4317
 ```
 
-Open `http://127.0.0.1:4317`. Create deploys one grant with a 1,000-unit allowance, a one-hour expiry and a fixed receipt contract. Each deployment receives 100,000 local test units for execution; Fund transfers an additional 100 from the fixture. Amounts are raw stand SHELL units, not a displayed wallet denomination. No real money is involved.
+Open `http://127.0.0.1:4317`. Create deploys one grant with a 1,000-unit allowance, a one-hour expiry and a fixed receipt contract. Each deployment receives 10,000,000 local test units for execution and time-dependent storage charges, separate from the agent allowance; Fund transfers an additional 100 from the fixture. Amounts are raw stand SHELL units, not a displayed wallet denomination. No real money is involved. Receipt fees include protocol charges, not just compute; rejected calls and balance inspections can also consume test funds. The pinned SDK explains the distinction in [FUEL And SHELL](https://github.com/gosh-sh/avm-sdk/blob/0748f4f0767a26da8bc363bcb6b5585539d6970e/docs/fuel-and-fees.md).
 
 The live entrypoint additionally requires `ACKIVAULT_RELEASE_MANIFEST`, identifying the verified source/runtime/profile and contract artifact checksums. Startup rejects a mismatch. Native tests derive their manifest fields from actual build inputs and require `ACKIVAULT_SOURCE_COMMIT` for that checkout; those test fixtures are not release packages.
 
@@ -72,7 +72,7 @@ These commands verify material, not install or activate a service. The artifact 
 
 Installation is **not automated here**. A separate approved host preflight must validate resources/co-hosts. The dedicated non-root service needs a pre-created owned 0700 state directory, immutable code/runtime, privately held operator configuration, the explicit Node path and the template's resource/supervision settings. Cloudflare policy must enforce the exact identity and independent MFA, and tunnel ingress must preserve the canonical Host, expose only that hostname to loopback and reject unmatched ingress. Cloudflare configuration, MFA, public-origin bypass resistance and actual host compatibility are unverified until separately approved staging.
 
-The isolated CI service test checks retained-package reactivation with a fresh run, not rollback across two distinct application versions. A future version change needs that additional drill. A larger test-only initial execution budget isolates the expiry fixture from the stand's storage charges; it does not qualify an unattended one-hour session on the default 100,000-unit budget.
+The isolated CI service test checks retained-package reactivation with a fresh run, not rollback across two distinct application versions. A future version change needs that additional drill. The native console suite exercises the default fixture budget with 30-second user pauses, both cap and revocation rejections, and verified owner recovery 3,590 seconds after creation. Only the test clock advances; the pinned native runtime, fee settings and contract outputs are unchanged. This qualifies that bounded journey, not unlimited interactions or a real-time one-hour service soak. The expiry-specific fixture separately uses larger test funding to isolate its intentionally shifted clock.
 
 ## Checks
 
