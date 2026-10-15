@@ -57,6 +57,19 @@ bash scripts/verify-private-package.sh .tools/private-package /path/to/verified-
 
 The package builds from a fresh archive of the exact Git commit, not ignored working-tree outputs. It includes built application code, locked production dependencies, the explicit public assets and contract artifact triples, source/component digests and a unit template. Ignored private inputs and stale compiler outputs are excluded. The SDK binary is retrieved separately under its own license; no SDK, wallet, test state or credentials are bundled. Verification requires Node 22.18–22.x, native Linux x86-64-v3, glibc 2.39+, the exact file inventory and matched runtime/profile/artifacts. It rejects incompatible platforms instead of substituting an SDK.
 
+A successful native CI run retains `application-package-SOURCE_COMMIT_SHA` for seven days. It contains `ackivault-application.tar.gz` and its SHA256 file, not the SDK or Node runtime. Publication checks reject package members outside the explicit application/dependency allowlist. CI unpacks and reverifies this archive, then runs the existing non-root service lifecycle against that unpacked copy before uploading it. Failed qualification does not publish an application archive; `stand-diagnostics` remains separate test evidence.
+
+Download the artifact belonging to the exact reviewed commit. On the compatible Linux host, verify the archive before extracting into a **new** directory, then verify the extracted application against the separately obtained matching SDK:
+
+```sh
+sha256sum --check ackivault-application.tar.gz.sha256
+mkdir verified-application
+tar -xzf ackivault-application.tar.gz -C verified-application
+bash verified-application/scripts/verify-private-package.sh verified-application /path/to/verified-sdk
+```
+
+These commands verify material, not install or activate a service. The artifact expires; retain a verified operator-local copy and its source/run provenance if needed. Its checksum detects byte changes but does not replace trust in the source workflow or an independent signature. No personal configuration or Cloudflare credential belongs in the archive.
+
 Installation is **not automated here**. A separate approved host preflight must validate resources/co-hosts. The dedicated non-root service needs a pre-created owned 0700 state directory, immutable code/runtime, privately held operator configuration, the explicit Node path and the template's resource/supervision settings. Cloudflare policy must enforce the exact identity and independent MFA, and tunnel ingress must preserve the canonical Host, expose only that hostname to loopback and reject unmatched ingress. Cloudflare configuration, MFA, public-origin bypass resistance and actual host compatibility are unverified until separately approved staging.
 
 The isolated CI service test checks retained-package reactivation with a fresh run, not rollback across two distinct application versions. A future version change needs that additional drill. A larger test-only initial execution budget isolates the expiry fixture from the stand's storage charges; it does not qualify an unattended one-hour session on the default 100,000-unit budget.
