@@ -3,17 +3,22 @@ import { createServer, request } from "node:http";
 import { setTimeout } from "node:timers/promises";
 import test from "node:test";
 import { AccessVerifier, authorizeHostedRequest } from "../src/access.js";
-import { loadHostedConfig, type AccessConfig } from "../src/hosted-config.js";
-import { startAccessFixture, userClaims, type AccessFixture } from "./access-fixture.js";
+import { loadHostedConfig } from "../src/hosted-config.js";
+import { accessConfig, startAccessFixture, testHostedConfig, userClaims } from "./access-fixture.js";
+import { mkdtemp, readdir } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { createHostedServer } from "../src/hosted-http.js";
+import { hostedSnapshotSchema } from "../src/hosted-model.js";
+import { LocalStand } from "../src/stand.js";
+import { listen } from "../src/http.js";
+import { unstartedStandConfig } from "./stand-config.js";
+import { hostedRequest, closeServer } from "./hosted-client.js";
 
 function caDirectory(): string {
   const directory = process.env.ACKIVAULT_TEST_CA_DIR;
   assert.ok(directory, "ACKIVAULT_TEST_CA_DIR must identify the ephemeral TLS fixture");
   return directory;
-}
-export function accessConfig(fixture: AccessFixture): AccessConfig {
-  return { issuer: fixture.issuer, audience: "test-audience", allowedEmail: fixture.email,
-    jwksTimeoutMs: 1000, jwksAttempts: 2, jwksRetryDelayMs: 10, jwksCacheMs: 100, jwksCooldownMs: 1 };
 }
 
 test("rejects_invalid_access_tokens with real signatures and validates the permitted identity", async (): Promise<void> => {
@@ -114,4 +119,35 @@ test("rejects_incomplete_hosted_config before opening a listener", (): void => {
     ["ACKIVAULT_ACTION_DEADLINE_MS", "90001"], ["ACKIVAULT_JWKS_ATTEMPTS", "0"], ["ACKIVAULT_PORT", "0"]]) {
     assert.throws(() => loadHostedConfig({ ...environment, [key!]: value! }));
   }
+});
+
+test("guards_run_and_revision_before_native_work and safe_errors_cover_http_and_snapshot", async (): Promise<void> => {
+  const directory = await mkdtemp(path.join(tmpdir(), "ackivault-http-boundary-"));
+  const unused = path.join(directory, "must-not-execute");
+  const standConfig = { ...unstartedStandConfig({ sdkRoot: unused, vaultArtifacts: unused, receiptArtifacts: unused, stateParent: directory }), runId: "first-run" };
+  const stand = new LocalStand(standConfig);
+  const fixture = await startAccessFixture(caDirectory());
+  const config = testHostedConfig(fixture, standConfig.paths);
+  const server = createHostedServer(stand, config, new AccessVerifier(config.access), "first-run");
+  const port = await listen(server, 0);
+  const token = await fixture.sign(userClaims(fixture), "first");
+  try {
+    assert.equal((await hostedRequest(port, "", config.origin, "GET", "")).status, 403);
+    const initial = hostedSnapshotSchema.parse(JSON.parse((await hostedRequest(port, token, config.origin, "GET", "")).text));
+    assert.equal(initial.runId, "first-run"); assert.equal(initial.revision, 0);
+    for (const payload of [
+      { runId: "old-run", revision: 0, action: { action: "create" } },
+      { runId: "first-run", revision: 1, action: { action: "create" } },
+    ]) assert.equal((await hostedRequest(port, token, config.origin, "POST", JSON.stringify(payload))).status, 409);
+    assert.equal((await hostedRequest(port, token, config.origin, "POST", JSON.stringify({ runId: "first-run", revision: 0, action: { action: "pay", amount: "0" } }))).status, 400);
+    assert.equal(stand.evidenceDirectory, ""); assert.deepEqual(await readdir(directory), []);
+    const failed = await hostedRequest(port, token, config.origin, "POST", JSON.stringify({ runId: "first-run", revision: 0, action: { action: "create" } }));
+    assert.equal(failed.status, 502); assert.equal(failed.text.includes(directory), false);
+    const haltedResponse = await hostedRequest(port, token, config.origin, "GET", "");
+    assert.equal(haltedResponse.text.includes(directory), false);
+    const halted = hostedSnapshotSchema.parse(JSON.parse(haltedResponse.text));
+    assert.equal(halted.revision, 1); assert.equal(halted.state, "halted");
+    assert.deepEqual(halted.snapshot.availableActions, []);
+    assert.equal((await hostedRequest(port, token, config.origin, "POST", JSON.stringify({ runId: "first-run", revision: 1, action: { action: "create" } }))).status, 409);
+  } finally { await closeServer(server); await fixture.close(); }
 });

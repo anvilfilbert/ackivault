@@ -53,6 +53,7 @@ export class LocalStand {
       evidence: evidenceLimitsSchema.parse(config.evidence), provenance: provenanceSchema.parse(config.provenance), runId: config.runId };
   }
   get evidenceDirectory(): string { return this.directory; }
+  get runId(): string { return this.config.runId; }
   snapshot(): Snapshot { return snapshotSchema.parse(this.view); }
   async shutdown(): Promise<void> { this.closing = true; while (this.busy) await setTimeout(25); }
 

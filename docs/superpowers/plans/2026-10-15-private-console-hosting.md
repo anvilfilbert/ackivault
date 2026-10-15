@@ -10,7 +10,7 @@
 
 **Spec:** [Approved private-console hosting design](../specs/2026-10-15-private-console-hosting-design.md).
 
-**Status:** Written plan for review, not execution approval. No checklist item below is completed by writing this document. Baseline application source is `093b77971e1d28cb111229eba338abbcf27b64b9`; the reviewed specification was introduced by `cc4bd97b1b122194135f71b18ff0c86b3b858dff`.
+**Status:** Approved for inline implementation followed by an independent final review. VPS deployment remains excluded. Task evidence and completion are tracked in the execution ledger; approval or writing this document does not complete a checklist item. Baseline application source is `093b77971e1d28cb111229eba338abbcf27b64b9`; the reviewed specification was introduced by `cc4bd97b1b122194135f71b18ff0c86b3b858dff`.
 
 ## Global Constraints
 
@@ -168,4 +168,4 @@ Stop before host access. With separate approval, a later read-only preflight che
 
 ## Execution handoff
 
-Await plan review and execution-method selection. **Native execution is recommended:** the five tasks share a tightly coupled request/session/runner protocol, so one implementer can keep interfaces consistent, followed by an independent whole-branch review. **Subagent-driven execution** is the alternative, with a fresh implementation/review gate per task and a final whole-branch review. Neither method permits VPS deployment or inference integration under this plan.
+**Selected execution method: native inline implementation, followed by an independent whole-branch review.** The five tasks share a tightly coupled request/session/runner protocol, so one implementer keeps interfaces consistent. This approval does not permit VPS deployment or inference integration under this plan.

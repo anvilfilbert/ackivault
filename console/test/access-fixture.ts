@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { createServer } from "node:https";
 import path from "node:path";
 import { exportJWK, generateKeyPair, SignJWT, type JWK, type JWTPayload } from "jose";
+import type { AccessConfig, HostedConfig, StandPaths } from "../src/hosted-config.js";
 
 export type AccessFixture = {
   issuer: string; caFile: string; email: string; subject: string;
@@ -51,4 +52,14 @@ export async function startAccessFixture(directory: string): Promise<AccessFixtu
 export function userClaims(fixture: AccessFixture): JWTPayload {
   const now = Math.floor(Date.now() / 1000);
   return { iss: fixture.issuer, aud: ["test-audience"], email: fixture.email, sub: fixture.subject, type: "app", iat: now, exp: now + 300, nbf: now - 1 };
+}
+
+export function accessConfig(fixture: AccessFixture): AccessConfig {
+  return { issuer: fixture.issuer, audience: "test-audience", allowedEmail: fixture.email,
+    jwksTimeoutMs: 1000, jwksAttempts: 2, jwksRetryDelayMs: 10, jwksCacheMs: 100, jwksCooldownMs: 1 };
+}
+export function testHostedConfig(fixture: AccessFixture, paths: StandPaths): HostedConfig {
+  return { origin: "https://console.example.invalid", port: 4317, access: accessConfig(fixture), paths,
+    execution: { actionDeadlineMs: 60000, terminationGraceMs: 2000, maxOutputBytes: 4194304 },
+    evidence: { maxBytes: 1073741824, minFreeBytes: 1048576 }, releaseManifest: path.join(paths.stateParent, "release.json") };
 }
