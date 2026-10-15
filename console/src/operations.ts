@@ -3,7 +3,7 @@ import path from "node:path";
 import type { ExecutionLimits, StandPaths } from "./hosted-config.js";
 import type { EvidenceJournal } from "./journal.js";
 
-export type NativeInvocation = { command: string; args: readonly string[]; directory: string; deadlineAtMs: number; sequence: number };
+export type NativeInvocation = { command: string; args: readonly string[]; directory: string; deadlineAtMs: number; sequence: number; writerLockFd: 3 | null };
 export type CommandResult = { code: number; stdout: string; stderr: string; file: string };
 export class NativeOperationError extends Error {
   readonly reason: "ACTION_TIMEOUT" | "OUTPUT_LIMIT" | "PROCESS_LAUNCH";
@@ -24,7 +24,8 @@ export async function runNativeCommand(invocation: NativeInvocation, paths: Stan
   const state = path.join(invocation.directory, "developer.state");
   const args = [invocation.command, "--state", state, "--wasmtime-profile", path.join(paths.sdkRoot, "profiles/wasmtime-release-profile.v1"), ...invocation.args];
   const observed = await new Promise<Observed>((resolve): void => {
-    const child = spawn(path.join(paths.sdkRoot, "bin/avm-local-stand"), args, { shell: false, stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(path.join(paths.sdkRoot, "bin/avm-local-stand"), args, { shell: false,
+      stdio: ["ignore", "pipe", "pipe", invocation.writerLockFd === null ? "ignore" : invocation.writerLockFd] });
     let stdout = Buffer.alloc(0); let stderr = Buffer.alloc(0);
     let problem: NativeOperationError | null = null;
     let forced: NodeJS.Timeout | null = null;
@@ -35,12 +36,12 @@ export async function runNativeCommand(invocation: NativeInvocation, paths: Stan
       forced = setTimeout((): void => { child.kill("SIGKILL"); }, limits.terminationGraceMs);
     }
     const deadline = setTimeout((): void => terminate("ACTION_TIMEOUT"), remaining);
-    child.stdout.on("data", (chunk: Buffer): void => {
+    child.stdout!.on("data", (chunk: Buffer): void => {
       const available = limits.maxOutputBytes - stdout.length;
       stdout = Buffer.concat([stdout, chunk.subarray(0, Math.max(available, 0))]);
       if (chunk.length > available) terminate("OUTPUT_LIMIT");
     });
-    child.stderr.on("data", (chunk: Buffer): void => {
+    child.stderr!.on("data", (chunk: Buffer): void => {
       const available = limits.maxOutputBytes - stderr.length;
       stderr = Buffer.concat([stderr, chunk.subarray(0, Math.max(available, 0))]);
       if (chunk.length > available) terminate("OUTPUT_LIMIT");

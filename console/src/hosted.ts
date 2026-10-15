@@ -9,10 +9,10 @@ import { requireWriterLock } from "./service-lock.js";
 
 const config = loadHostedConfig(process.env);
 process.umask(0o077);
-await requireWriterLock(config.paths.stateParent);
+const writerLockFd = await requireWriterLock(config.paths.stateParent);
 const provenance = await loadStandProvenance(config.releaseManifest, config.paths);
 const runId = randomUUID();
-const stand = new LocalStand({ paths: config.paths, execution: config.execution, evidence: config.evidence, provenance, runId });
+const stand = new LocalStand({ paths: config.paths, execution: config.execution, evidence: config.evidence, provenance, runId, writerLockFd });
 const server = createHostedServer(stand, config, new AccessVerifier(config.access), runId);
 await listen(server, config.port);
 console.log(JSON.stringify({ event: "hosted_console_listening", runId, applicationCommit: provenance.applicationCommit, testFundsOnly: true }));

@@ -8,7 +8,7 @@ import { executionLimitsSchema, evidenceLimitsSchema, standPathsSchema, type Sta
 import { EvidenceJournal, provenanceSchema, type StandProvenance } from "./journal.js";
 import { runNativeCommand, type CommandResult } from "./operations.js";
 
-export type StandConfig = { paths: StandPaths; execution: ExecutionLimits; evidence: EvidenceLimits; provenance: StandProvenance; runId: string };
+export type StandConfig = { paths: StandPaths; execution: ExecutionLimits; evidence: EvidenceLimits; provenance: StandProvenance; runId: string; writerLockFd: 3 | null };
 type Session = { state: string; receiver: string; vault: string; agent: string };
 const DAPP = "11".repeat(32);
 const DEPOSIT = 0xe940cf114abdd07an;
@@ -50,7 +50,8 @@ export class LocalStand {
 
   constructor(config: StandConfig) {
     this.config = { paths: standPathsSchema.parse(config.paths), execution: executionLimitsSchema.parse(config.execution),
-      evidence: evidenceLimitsSchema.parse(config.evidence), provenance: provenanceSchema.parse(config.provenance), runId: config.runId };
+      evidence: evidenceLimitsSchema.parse(config.evidence), provenance: provenanceSchema.parse(config.provenance), runId: config.runId,
+      writerLockFd: z.literal(3).nullable().parse(config.writerLockFd) };
   }
   get evidenceDirectory(): string { return this.directory; }
   get runId(): string { return this.config.runId; }
@@ -87,7 +88,7 @@ export class LocalStand {
   private async command(command: string, args: string[]): Promise<CommandResult> {
     if (this.journal === null) throw new Error("Native command has no private evidence journal");
     if (++this.actionCommands > 16) throw new Error("Native action exceeded its 16-command evidence budget");
-    return runNativeCommand({ command, args, directory: this.directory, sequence: ++this.counter, deadlineAtMs: this.deadlineAtMs },
+    return runNativeCommand({ command, args, directory: this.directory, sequence: ++this.counter, deadlineAtMs: this.deadlineAtMs, writerLockFd: this.config.writerLockFd },
       this.config.paths, this.config.execution, this.journal);
   }
 
