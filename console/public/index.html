@@ -44,7 +44,7 @@
         <form data-testid="pay-form"><label for="pay-amount">Agent payment</label><div class="input-row"><input id="pay-amount" data-testid="pay-amount" inputmode="numeric" pattern="[1-9][0-9]*" value="10" required aria-describedby="payment-help"><button type="submit" data-action="pay" data-testid="pay">Pay ↗</button></div><p id="payment-help" class="caption">Only the approved recipient. Amount + 5 counts against the cap.</p></form>
         <div class="control-pair"><button data-action="inspect" data-testid="inspect">Sample balance</button><button class="danger" data-action="revoke" data-testid="revoke">Revoke grant</button></div>
         <form data-testid="withdraw-form"><label for="withdraw-amount">Owner recovery</label><div class="input-row"><input id="withdraw-amount" data-testid="withdraw-amount" inputmode="numeric" pattern="[1-9][0-9]*" value="7" required><button type="submit" data-action="withdraw" data-testid="withdraw">Withdraw ↗</button></div><p class="caption">After revocation or expiry. This demo sends recovery funds to the test recipient.</p></form>
-        <p class="fine-print">A fresh stand grants each deployment 100,000 test units for gas and execution. Fund transfers an additional 100 from the fixture. No wallet import, RPC connection or network transaction.</p>
+        <p class="fine-print">A fresh stand grants each deployment 10,000,000 test units for execution and time-dependent storage charges, separate from the 1,000-unit agent allowance. Fund transfers an additional 100 from the fixture. No wallet import, RPC connection or network transaction.</p>
         <p class="action-result" data-testid="action-result" role="status" aria-live="polite">Ready to inspect.</p>
       </section>
     </div>
