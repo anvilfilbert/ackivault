@@ -26,6 +26,7 @@ cp -R console/dist/src console/dist/browser "$output/console/dist/"
 cp console/public/index.html console/public/styles.css "$output/console/public/"
 cp console/package.json console/package-lock.json "$output/console/"
 npm ci --prefix "$output/console" --omit=dev --ignore-scripts
+find "$output/console/node_modules" -depth -type d -empty -delete
 for artifact in contract.wasm contract.acab contract.descriptor; do
   cp "contract/target/avm/$artifact" "$output/vault/"
   cp "tests/stand/receipt/target/avm/$artifact" "$output/recipient/"
