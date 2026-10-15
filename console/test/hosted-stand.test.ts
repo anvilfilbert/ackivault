@@ -6,17 +6,18 @@ import { LocalStand } from "../src/stand.js";
 import { decodeCall, decodeRecipient } from "../src/receipts.js";
 import { nativeRecipientSnapshot } from "./receipt-loss.js";
 import { delayedPaymentSdk, overflowPaymentSdk, unwritableReceiptSdk } from "./native-faults.js";
+import { nativeStandConfig } from "./stand-config.js";
+import type { StandConfig } from "../src/stand.js";
 
 function required(name: string): string {
   const value = process.env[name];
   assert.ok(value, `${name} is required for real native tests`);
   return path.resolve(value);
 }
-async function config(sdkRoot: string, stateParent: string, maxBytes: number) {
+async function config(sdkRoot: string, stateParent: string, maxBytes: number): Promise<StandConfig> {
   const paths = { sdkRoot, stateParent, vaultArtifacts: required("ACKIVAULT_VAULT_ARTIFACTS"), receiptArtifacts: required("ACKIVAULT_RECEIPT_ARTIFACTS") };
-  // Both shapes let the red test exercise the original runner, which ignores the new limits.
-  return { ...paths, paths, runId: "native-test-run", execution: { actionDeadlineMs: 2000, terminationGraceMs: 100, maxOutputBytes: 4194304 },
-    evidence: { maxBytes, minFreeBytes: 1048576 }, provenance: null };
+  return { ...await nativeStandConfig(paths), execution: { actionDeadlineMs: 2000, terminationGraceMs: 100, maxOutputBytes: 4194304 },
+    evidence: { maxBytes, minFreeBytes: 1048576 } };
 }
 
 async function parentDirectory(): Promise<string> {
