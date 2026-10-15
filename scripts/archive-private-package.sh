@@ -20,6 +20,23 @@ while IFS= read -r member; do
     *) printf 'Package member is not approved for publication: %s\n' "$member" >&2; exit 1;;
   esac
 done < <(cut -c67- "$package/FILES.sha256")
+node --input-type=module - "$package" <<'JS'
+import { readFile, readdir } from "node:fs/promises";
+import path from "node:path";
+const [pkg] = process.argv.slice(2);
+const files = (await readFile(path.join(pkg, "FILES.sha256"), "utf8")).trimEnd().split("\n").map(line => line.slice(66));
+async function checkDirectories(directory) {
+  for (const entry of await readdir(path.join(pkg, directory), { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const member = path.posix.join(directory, entry.name);
+    if (!files.some(file => file.startsWith(`./${member}/`))) {
+      throw Error(`Package directory is not approved for publication: ./${member}`);
+    }
+    await checkDirectories(member);
+  }
+}
+await checkDirectories("");
+JS
 umask 077
 mkdir "$output"
 tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -czf "$output/ackivault-application.tar.gz" -C "$package" .

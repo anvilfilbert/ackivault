@@ -26,11 +26,26 @@ async function writableDirectories(directory: string): Promise<void> {
   }
 }
 
+async function archiveMembers(file: string): Promise<string[]> {
+  return new Promise<string[]>((resolve, reject): void => {
+    execFile("tar", ["-tzf", file], { encoding: "utf8", maxBuffer: 4194304, timeout: 30000 }, (error, stdout): void => {
+      if (error) { reject(error); return; }
+      resolve(stdout.trimEnd().split("\n"));
+    });
+  });
+}
+
 // Removing archive creation or adding an extra package member must break this real roundtrip.
 await archive(pkg, output);
 const archiveBytes = await readFile(path.join(output, "ackivault-application.tar.gz"));
 const digest = createHash("sha256").update(archiveBytes).digest("hex");
 assert.equal(await readFile(path.join(output, "ackivault-application.tar.gz.sha256"), "utf8"), `${digest}  ackivault-application.tar.gz\n`);
+const members = await archiveMembers(path.join(output, "ackivault-application.tar.gz"));
+const expectedFiles = (await readFile(path.join(pkg, "FILES.sha256"), "utf8")).trimEnd().split("\n").map((line: string): string => line.slice(66));
+assert.deepEqual(members.filter((member: string): boolean => !member.endsWith("/")).sort(), ["./FILES.sha256", ...expectedFiles].sort());
+for (const directory of members.filter((member: string): boolean => member.endsWith("/"))) {
+  assert.ok(expectedFiles.some((file: string): boolean => file.startsWith(directory)), "Every archived directory must contain an inventoried file");
+}
 for (const name of ["FILES.sha256", "release.json"]) {
   assert.equal(await readFile(path.join(output, "verified-package", name), "utf8"), await readFile(path.join(pkg, name), "utf8"));
 }
