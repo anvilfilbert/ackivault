@@ -16,7 +16,7 @@ The [local web console](console/README.md) exposes the test flow: create, fund, 
 
 This is an open-source learning and reference example for AVM contract authors and agent developers, not a hosted custody service or a DEX.DO connector. Use the source, tests and receipts to explore bounded spending and failure handling; the example does not purchase inference or manage a customer's network wallet.
 
-**Status: active development and security testing ongoing.** The local AVM demonstration and separate authenticated private-console laboratory have passed their bounded Linux CI checks; see the [verification scope](docs/verification.md#private-console-qualification). They are not independently audited or network-deployed wallets. Deeper adversarial testing is in progress; passing tests are not approval for real funds. No console entrypoint connects to Shellnet or Mainnet. No real keys, funded network accounts or network deployment configuration belong in this repository. Do not deposit real funds.
+**Status: Phase 1 learning milestone complete; project paused.** The local AVM demonstration and separate authenticated private-console laboratory have passed their bounded Linux CI checks; see the [verification scope](docs/verification.md#private-console-qualification). They are not independently audited or network-deployed wallets; passing tests are not approval for real funds. No console entrypoint connects to Shellnet or Mainnet. No real keys, funded network accounts or network deployment configuration belong in this repository. Do not deposit real funds.
 
 ## The bigger idea: several sellers, one API
 
@@ -32,7 +32,7 @@ The user would connect their tool once, then choose the model or purchased strea
 
 The intended benefit is less connection management: one place to see purchased capacity, usage, spending limits and connection status instead of juggling several seller endpoints. Sellers could reach buyers through the tools they already use. DEX.DO would remain the marketplace for model access, matching and settlement; AckiVault would be the convenience and control layer around it, not a second exchange.
 
-**This routing API is a future concept, not implemented functionality or an active customer-service launch.** Today's repository demonstrates bounded spending and receipt verification only. The experimental AVM vault is not a verified replacement for DEX.DO's own wallet, escrow or PrivateNote flow. Signing/delegation, purchased-access handling, privacy and upstream compatibility must be proven before an integration can be claimed. A controlled IDE test with one or two streams comes after the current console milestone; it does not authorize real-fund purchases or promise a launch date.
+**This routing API is an untested, paused concept, not implemented functionality or an active customer-service launch.** Today's repository demonstrates bounded spending and receipt verification only. The experimental AVM vault is not a verified replacement for DEX.DO's own wallet, escrow or PrivateNote flow. The [Phase 2 research checkpoint](docs/phase2-research.md) records source observations, unresolved key-authority questions and the missing end-to-end tests. No integration or launch is promised.
 
 ## Start reviewing
 
